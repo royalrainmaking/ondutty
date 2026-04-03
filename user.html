@@ -643,17 +643,11 @@
             <div class="clock-date" id="liveDate">--</div>
             <div id="todayStatus" class="status-badge" style="opacity:0.8">🔄 กำลังตรวจสอบข้อมูล...</div>
         </div>
-        <div class="section-card" id="step1" style="display:none">
-            <div class="step-num"><span>1</span></div>
-            <div class="section-title">📍 สถานที่ปฏิบัติงาน</div>
-            <select id="locationSelect" onchange="validateSteps()">
-                <option value="Work From Home" selected>🏠 Work From Home</option>
-            </select>
-        </div>
+        <!-- Hidden Location (Fixed to WFH) -->
+        <input type="hidden" id="locationSelect" value="Work From Home">
 
-        <div class="section-card" id="step2" style="display:none">
-            <div class="step-num"><span>2</span></div>
-            <div class="section-title">📍 พิกัดของคุณ</div>
+        <div class="section-card" id="step2">
+            <div class="section-title">📍 พิกัด GPS ของคุณ</div>
             <div class="map-area" id="mapArea">
                 <div>🗺️</div>
                 <div id="gpsStatus" style="color:#5c6bc0;font-weight:600;font-size:13px">กำลังค้นหาตำแหน่ง...</div>
@@ -663,10 +657,9 @@
 
         <!-- Face Scanner Section -->
         <div class="section-card" id="step3" style="display:none">
-            <div class="step-num"><span>3</span></div>
-            <div class="section-title">👤 สแกนใบหน้ายืนยันตัวตน</div>
-            <div class="face-scanner-wrap">
-                <div id="faceStatus" class="face-status-msg">&#128247; เปิดกล้อง...</div>
+            <div class="section-title">👤 ยืนยันตัวตนด้วยใบหน้า</div>
+            <div class="face-scanner-wrap" id="faceScannerFlow" style="display:none">
+                <div id="faceStatus" class="face-status-msg" style="display:none">&#128247; เปิดกล้อง...</div>
                 <div class="video-container" id="videoContainer" style="display:none">
                     <video id="faceVideo" autoplay muted playsinline></video>
                     <canvas id="faceOverlay"></canvas>
@@ -690,12 +683,13 @@
             <button class="btn-camera" id="captureBtn" onclick="captureFace()" style="display:none">
                 📸 บันทึกภาพใบหน้า
             </button>
+            <button class="btn-camera" id="btnOpenCamera" onclick="startFaceScanner()" style="background:#10b981">
+                📸 เปิดกล้องสแกนใบหน้า
+            </button>
         </div>
 
-        <div class="section-card" id="step4" style="display:none">
-            <!-- Hidden Signature placeholder -->
-            <canvas id="sigCanvas" width="600" height="140" style="display:none"></canvas>
-        </div>
+        <!-- Hidden Signature -->
+        <canvas id="sigCanvas" width="600" height="140" style="display:none"></canvas>
 
         <div class="btn-group" id="actionBtnGroup" style="display:none; transition: all 0.3s">
             <button class="btn-checkin" id="btnIn" onclick="doCheckIn()">
@@ -818,8 +812,11 @@
             const statusEl = document.getElementById('faceStatus');
             const container = document.getElementById('videoContainer');
             const video = document.getElementById('faceVideo');
-            const captureBtn = document.getElementById('captureBtn');
+            const openBtn = document.getElementById('btnOpenCamera');
+            const flowWrap = document.getElementById('faceScannerFlow');
 
+            openBtn.style.display = 'none';
+            flowWrap.style.display = 'block';
             statusEl.style.display = 'block';
             statusEl.textContent = '🤖 กำลังโหลด AI Model...';
             try {
@@ -1005,8 +1002,10 @@
             document.getElementById('btnContinue').style.display = 'none';
             document.getElementById('btnTryAgain').style.display = 'none';
             document.getElementById('faceCaptured').style.display = 'none';
-            document.getElementById('faceStatus').style.display = 'block';
-            startFaceScanner();
+            document.getElementById('startScanBtn').style.display = 'none';
+            document.getElementById('captureBtn').style.display = 'none';
+            document.getElementById('faceScannerFlow').style.display = 'none';
+            document.getElementById('btnOpenCamera').style.display = 'block';
             validateSteps();
         }
 
@@ -1197,11 +1196,10 @@
         }
 
         function validateSteps() {
-            const loc = document.getElementById('locationSelect').value;
             const hasGPS = gpsLat !== null && gpsLng !== null;
             const hasFace = !!photoDataUrl;
 
-            // Step 1 & 2: Hide Location (Auto) and Wait for GPS
+            // Wait for GPS
             if (!hasGPS) {
                 document.getElementById('step2').style.display = 'block';
                 document.getElementById('step3').style.display = 'none';
@@ -1211,7 +1209,7 @@
                 document.getElementById('step2').style.display = 'none';
             }
 
-            // Step 3: Face Scan
+            // Face Scan
             if (hasGPS && !hasFace) {
                 document.getElementById('step3').style.display = 'block';
                 document.getElementById('actionBtnGroup').style.display = 'none';
@@ -1220,7 +1218,7 @@
                 document.getElementById('step3').style.display = 'none';
             }
 
-            // Step 4: Submit Buttons (After Face captured)
+            // Action Buttons
             if (hasGPS && hasFace) {
                 document.getElementById('actionBtnGroup').style.display = 'flex';
             }
