@@ -1333,18 +1333,21 @@
                 console.error('Settings fetch error:', e); 
             }
 
-            // Function to parse various time formats (HH:mm or ISO Date string)
+            // Function to parse various time formats
             function parseTimeToMins(val) {
                 if (!val) return 8 * 60 + 30; // Default
-                // Handle ISO Date Strings (like 1899-12-30T01:47:56.000Z)
-                if (val.includes('T')) {
-                    const d = new Date(val);
-                    if (!isNaN(d.getTime())) {
-                        return (d.getHours() * 60) + d.getMinutes();
-                    }
+                const s = String(val);
+                if (s.includes('T')) {
+                    try {
+                        const timePart = s.split('T')[1];
+                        const hms = timePart.split(':');
+                        let h = parseInt(hms[0]);
+                        let m = parseInt(hms[1]);
+                        if (s.endsWith('Z')) h = (h + 7) % 24;
+                        return (h * 60) + m;
+                    } catch (e) { }
                 }
-                // Handle HH:mm formats
-                const parts = String(val).split(':');
+                const parts = s.split(':');
                 const h = parseInt(parts[0]) || 8;
                 const m = parseInt(parts[1]) || 30;
                 return (h * 60) + m;
@@ -1354,25 +1357,21 @@
             const currentTotalMins = (now.getHours() * 60) + now.getMinutes();
             lateMin = Math.max(0, currentTotalMins - targetTotalMins);
 
-            const debugInfo = `⏰ ตรวจสอบเวลา:\n- เวลาตอนนี้: ${now.getHours()}:${now.getMinutes()}\n- เวลาเริ่มงาน: ${adminCheckInTime}\n- สาย: ${lateMin} นาที`;
-            console.log(debugInfo);
+            const displayTargetTime = `${Math.floor(targetTotalMins / 60).toString().padStart(2, '0')}:${(targetTotalMins % 60).toString().padStart(2, '0')}`;
+            const debugInfo = `⏰ ตรวจสอบเวลา:\n- เวลาตอนนี้: ${now.getHours()}:${now.getMinutes()}\n- เวลาเริ่มงาน: ${displayTargetTime}\n- สาย: ${lateMin} นาที\n(ค่าดิบ: ${adminCheckInTime})`;
 
             try {
                 const payload = {
                     action: 'addLog', userId: currentUser.id, userName: currentUser.name,
                     date: today, time, type: 'checkin', location: loc,
                     lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: '',
-                    lateMin: lateMin,
-                    late: lateMin,
-                    lateness: lateMin,
-                    entryLate: lateMin // Additional variation
+                    lateMin: lateMin, late: lateMin, lateness: lateMin, entryLate: lateMin
                 };
 
                 await api('', 'POST', payload);
                 todayCheckin = { type: 'checkin', time };
                 isCurrentlyIn = true;
                 updateTodayStatus();
-                
                 alert(`✅ บันทึกสำเร็จ!\n\n${debugInfo}`);
                 logout();
             } catch (e) {
