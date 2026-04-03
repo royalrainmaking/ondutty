@@ -948,7 +948,11 @@
         async function loadUsers() {
             try {
                 const r = await api('?action=getUsers');
-                allUsers = r.data || [];
+                const rawUsers = r.data || [];
+                // Deduplicate by ID
+                const uniqueUsers = {};
+                rawUsers.forEach(u => { if (u.id) uniqueUsers[u.id] = u; });
+                allUsers = Object.values(uniqueUsers);
                 populateUserDropdowns();
             } catch (e) { }
         }

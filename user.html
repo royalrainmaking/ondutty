@@ -1060,13 +1060,14 @@
             overlay.innerHTML = '';
             overlay.classList.remove('show');
 
-            // ===== กรณีที่ 1: ยังไม่เคยลงทะเบียนใบหน้า =====
-            const isFirstTime = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null';
+            // Case 1: Registration (First time) - Proceed automatically to attendance
+            const isFirstTime = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null' || currentUser.faceDescriptor === 'undefined';
+            
             if (isFirstTime) {
                 const confirm_ = confirm('📸 นี่คือการลงทะเบียนใบหน้าครั้งแรก\nระบบจะบันทึกใบหน้าของคุณไว้สำหรับยืนยันตัวตน\nยืนยันหรือไม่?');
                 if (!confirm_) { isCapturing = false; detectionCount = 0; return; }
 
-                // บันทึก descriptor ลง Sheets
+                showToast('⏳ กำลังลงทะเบียน...', 'info');
                 const descArr = Array.from(descriptor);
                 await api('', 'POST', {
                     action: 'saveUser',
@@ -1076,19 +1077,25 @@
                     active: true, faceDescriptor: JSON.stringify(descArr),
                     department: currentUser.department, position: currentUser.position
                 });
+                
                 currentUser.faceDescriptor = JSON.stringify(descArr);
                 sessionStorage.setItem('wfh_current', JSON.stringify(currentUser));
                 faceVerified = true;
+                photoDataUrl = canvas.toDataURL('image/jpeg', 0.5); // Ensure photo is set
                 
                 resEl.style.color = '#10b981';
-                resEl.textContent = '✅ ลงทะเบียนใบหน้าสำเร็จ';
-                
-                // Show checkmark on image
+                resEl.textContent = '✅ ลงทะเบียนสำเร็จ (กำลังลงเวลา...)';
                 overlay.innerHTML = '✔️';
                 overlay.classList.add('success', 'show');
                 imgEl.style.borderColor = '#10b981';
 
-                // ===== กรณีที่ 2: มี descriptor แล้ว – ต้องยืนยัน =====
+                // AUTO-PROCEED to check-in/out
+                setTimeout(() => {
+                    if (!isCurrentlyIn) doCheckIn();
+                    else doCheckOut();
+                }, 1000);
+
+            // Case 2: Verification (Existing user)
             } else {
                 const storedArr = JSON.parse(currentUser.faceDescriptor);
                 const storedDesc = new Float32Array(storedArr);
