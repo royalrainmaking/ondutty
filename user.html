@@ -232,10 +232,30 @@
         }
 
         .btn-group {
-            display: flex;
+            display: none;
             flex-direction: column;
             gap: 12px;
             margin-top: 8px
+        }
+
+        .btn-group.visible {
+            display: flex;
+        }
+
+        .btn-group.show-in #btnIn {
+            display: flex;
+        }
+
+        .btn-group.show-out #btnOut {
+            display: flex;
+        }
+
+        .btn-group:not(.show-in) #btnIn {
+            display: none;
+        }
+
+        .btn-group:not(.show-out) #btnOut {
+            display: none;
         }
 
         .btn-checkin {
@@ -496,29 +516,21 @@
             display: flex
         }
 
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f7931e;
-            border-top-color: transparent;
+        .btn-spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #ffffff44;
+            border-top: 2px solid #fff;
             border-radius: 50%;
-            animation: spin .7s linear infinite
+            animation: spin 0.8s linear infinite;
+            display: none;
+            margin-right: 8px;
         }
 
         @keyframes spin {
             to {
-                transform: rotate(360deg)
+                transform: rotate(360deg);
             }
-        }
-
-        .btn-spinner {
-            width: 18px;
-            height: 18px;
-            border: 2px solid #fff;
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin .7s linear infinite;
-            display: none;
         }
 
         input[type=file] {
@@ -1042,33 +1054,25 @@
 
         function updateTodayStatus() {
             const el = document.getElementById('todayStatus');
-            const btnIn = document.getElementById('btnIn');
-            const btnOut = document.getElementById('btnOut');
+            const group = document.getElementById('actionBtnGroup');
             const txtIn = document.getElementById('txtIn');
             const txtOut = document.getElementById('txtOut');
+            if (!el || !group) return;
             el.style.opacity = '1';
 
+            group.classList.remove('show-in', 'show-out');
             if (isCurrentlyIn) {
-                // กำลังทำงานอยู่ -> ให้กดออกได้
                 el.textContent = `🟡 เข้างานแล้ว (${formatTime(todayCheckin.time)} น.)`;
-                btnIn.style.display = 'none';
-                btnOut.style.display = 'flex';
-                btnOut.style.width = '100%';
+                group.classList.add('show-out');
                 if (txtOut) txtOut.textContent = '🔴 ออกงาน';
             } else if (todayCheckout) {
-                // ออกงานไปแล้ว -> ให้กดเข้าใหม่ได้
                 el.textContent = `🔴 ออกงานแล้วล่าสุด (${formatTime(todayCheckout.time)} น.)`;
-                btnIn.style.display = 'flex';
-                btnIn.style.width = '100%';
+                group.classList.add('show-in');
                 if (txtIn) txtIn.textContent = '🟢 เข้างานใหม่ (เริ่มกะใหม่)';
-                btnOut.style.display = 'none';
             } else {
-                // ยังไม่ได้เริ่มอะไรเลย
                 el.textContent = '🟢 ยังไม่ได้ลงเวลา';
-                btnIn.style.display = 'flex';
-                btnIn.style.width = '100%';
+                group.classList.add('show-in');
                 if (txtIn) txtIn.textContent = '🟢 เข้างาน';
-                btnOut.style.display = 'none';
             }
             validateSteps();
         }
@@ -1225,7 +1229,9 @@
 
             // Action Buttons
             if (hasGPS && hasFace) {
-                document.getElementById('actionBtnGroup').style.display = 'flex';
+                document.getElementById('actionBtnGroup').classList.add('visible');
+            } else {
+                document.getElementById('actionBtnGroup').classList.remove('visible');
             }
         }
 
