@@ -960,12 +960,11 @@
                 const resEl = document.getElementById('faceResultMsg');
                 if (distance > FACE_THRESHOLD) {
                     faceVerified = false;
-                    photoDataUrl = null; // Clear photo if failed
-                    resEl.style.color = '#ef4444';
-                    resEl.textContent = `❌ ใบหน้าไม่ตรงกัน (ระยะ: ${distance.toFixed(2)})`;
-                    document.getElementById('btnTryAgain').style.display = 'block';
-                    document.getElementById('btnContinue').style.display = 'none';
-                    showToast('❌ ตรวจสอบใบหน้าไม่ผ่าน กรุณาสแกนใหม่', 'error');
+                    photoDataUrl = null;
+                    document.getElementById('actionBtnGroup').style.display = 'none';
+                    alert(`❌ ใบหน้าไม่ถูกต้อง (ระยะ: ${distance.toFixed(2)})\nระบบจะทำการออกจากระบบเพื่อความปลอดภัย`);
+                    logout();
+                    return;
                 } else {
                     faceVerified = true;
                     resEl.style.color = '#10b981';
