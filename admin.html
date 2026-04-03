@@ -1045,7 +1045,8 @@
                 const co = s.co;
                 const ciTime = ci ? formatTime(ci.time) : '<span style="color:#ccc">---</span>';
                 const coTime = co ? formatTime(co.time) : '<span style="color:#ccc">---</span>';
-                const lateMin = ci ? (ci.lateMin || 0) : 0;
+                const lateMin = (ci && ci.lateMin > 0) ? Number(ci.lateMin) : 0;
+                const earlyMin = (co && co.lateMin < 0) ? Math.abs(Number(co.lateMin)) : 0;
 
                 const isValidImg = (s) => s && s.length > 100 && s.startsWith('data:image');
                 const photoHtml = isValidImg(ci?.photo) ? `<img src="${ci.photo}" class="thumb-img" onclick="previewImg(this.src)" title="ภาพเข้างาน" onerror="this.style.display='none'">` : '';
@@ -1070,6 +1071,29 @@
                 if (ci) deleteHtml.push(`<button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick="deleteLogItem('${ci.id}')">🗑️ เข้า</button>`);
                 if (co) deleteHtml.push(`<button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick="deleteLogItem('${co.id}')">🗑️ ออก</button>`);
 
+                const rawLate = ci ? ci.lateMin : null;
+                const rawEarly = co ? co.lateMin : null;
+
+                let lateHtml = '';
+                if (ci) {
+                    if (rawLate !== null && rawLate !== undefined && rawLate !== '') {
+                        const val = Number(rawLate);
+                        if (val > 0) {
+                            lateHtml = `<div style="color:#dc2626;font-weight:800;font-size:13px;margin-top:4px">⚠️ สาย ${val} นาที</div>`;
+                        } else if (val === 0) {
+                            lateHtml = `<div style="color:#16a34a;font-size:11px;margin-top:4px">✅ ตรงเวลา</div>`;
+                        }
+                    }
+                }
+
+                let earlyHtml = '';
+                if (co && rawEarly !== null && rawEarly !== undefined && rawEarly !== '') {
+                    const val = Number(rawEarly);
+                    if (val < 0) {
+                        earlyHtml = `<div style="color:#ef4444;font-weight:800;font-size:13px;margin-top:4px">🏃 ออกก่อน ${Math.abs(val)} นาที</div>`;
+                    }
+                }
+
                 return `<tr>
                     <td><strong>${formatDateShort(s.date)}</strong></td>
                     <td>👤 ${s.userId}<br><small style="color:#555">${s.userName}</small></td>
@@ -1077,7 +1101,11 @@
                         <div style="color:#16a34a;font-size:13px;font-weight:700">🟢 เข้า: ${ciTime}</div>
                         <div style="color:#dc2626;font-size:13px;font-weight:700;margin-top:4px">🔴 ออก: ${coTime}</div>
                     </td>
-                    <td>${hrsHtml}${lateMin > 0 ? `<br><span class="badge badge-late" style="margin-top:4px;display:inline-block">สาย ${lateMin} นาที</span>` : ''}</td>
+                    <td>
+                        ${hrsHtml}
+                        ${lateHtml}
+                        ${earlyHtml}
+                    </td>
                     <td>${mediaHtml}</td>
                     <td>${mapHtml}</td>
                     <td style="display:flex;flex-direction:column;gap:6px">${deleteHtml.join('')}</td>

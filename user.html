@@ -883,6 +883,12 @@
                 const hr = now.getHours();
                 const gr = hr < 12 ? 'สวัสดีตอนเช้า' : hr < 17 ? 'สวัสดียามบ่าย' : 'สวัสดีตอนเย็น';
                 document.getElementById('greeting').textContent = `☀️ ${gr}คุณ ${currentUser.name}`;
+
+                // Refresh status if date changes (Midnight) while the page is open
+                const checkToday = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+                if (lastCheckedDate && lastCheckedDate !== checkToday) {
+                    loadTodayLogs();
+                }
             }
             update(); setInterval(update, 1000);
         }
@@ -1120,10 +1126,9 @@
                 }
             }
 
-            // ===== Capture photo =====
+            // ===== Capture photo with Resizing & Compression =====
             const video = document.getElementById('faceVideo');
             
-            // Check for valid dimensions to prevent data:, (0-size canvas)
             if (video.videoWidth === 0 || video.videoHeight === 0) {
                 showToast('❌ กล้องยังไม่พร้อม กรุณารอสักครู่', 'error');
                 isCapturing = false;
@@ -1131,9 +1136,20 @@
                 return;
             }
 
+            // Calculate resized dimensions (Max width 400px to stay under Sheets 50k char limit)
+            const MAX_WIDTH = 400;
+            let targetWidth = video.videoWidth;
+            let targetHeight = video.videoHeight;
+            
+            if (targetWidth > MAX_WIDTH) {
+                const ratio = MAX_WIDTH / targetWidth;
+                targetWidth = MAX_WIDTH;
+                targetHeight = video.videoHeight * ratio;
+            }
+
             const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
             const ctx = canvas.getContext('2d');
             
             // Set mirror effect
@@ -1141,18 +1157,26 @@
             ctx.scale(-1, 1);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            // Check if blank or invalid
+            // Check if blank
             if (isCanvasBlank(canvas)) {
                 showToast('❌ ไม่สามารถบันทึกภาพได้ กรุณาลองใหม่', 'error');
                 retakeFace();
                 return;
             }
             
-            photoDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            // Use JPEG with 0.5 quality for maximum compression
+            photoDataUrl = canvas.toDataURL('image/jpeg', 0.5);
 
-            // Double check for data:, (empty result)
-            if (photoDataUrl === 'data:,' || JSON.stringify(photoDataUrl).length < 50) {
-                showToast('❌ ข้อมูลภาพผิดปกติ กรุณาสแกนใหม่', 'error');
+            // Final safety check for length (Google Sheets limit is 50,000)
+            if (photoDataUrl.length > 48000) {
+                // If still too large, try even lower quality
+                photoDataUrl = canvas.toDataURL('image/jpeg', 0.3);
+            }
+
+            if (photoDataUrl === 'data:,' || photoDataUrl.length < 500) {
+                photoDataUrl = null;
+                faceVerified = false;
+                showToast('❌ ตรวจสอบใบหน้าไม่สำเร็จ (รูปมีปัญหา) กรุณาสแกนใหม่', 'error');
                 retakeFace();
                 return;
             }
@@ -1166,7 +1190,6 @@
             document.getElementById('capturedImg').src = photoDataUrl;
             document.getElementById('faceCaptured').style.display = 'block';
             
-            // Automatically validate steps after a short delay to show the result
             setTimeout(() => {
                 validateSteps();
             }, 1000);
@@ -1203,8 +1226,24 @@
 
 
         let currentTodayLogs = [];
+        let lastCheckedDate = ''; 
         async function loadTodayLogs() {
-            const today = new Date().toISOString().slice(0, 10);
+            const now = new Date();
+            const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+            
+            // Auto Reset if midnight passed
+            if (lastCheckedDate && lastCheckedDate !== today) {
+                console.log('Day changed! Resetting UI status.');
+                photoDataUrl = null;
+                faceVerified = false;
+                currentDetection = null;
+                detectionCount = 0;
+                document.getElementById('capturedImg').src = '';
+                document.getElementById('faceCaptured').style.display = 'none';
+                document.getElementById('btnOpenCamera').style.display = 'block';
+            }
+            lastCheckedDate = today;
+
             try {
                 const resp = await api(`?action=getLogs&userId=${currentUser.id}&dateFrom=${today}&dateTo=${today}`);
                 currentTodayLogs = resp.data || [];
@@ -1275,36 +1314,57 @@
         async function doCheckIn() {
             const loc = document.getElementById('locationSelect').value;
             if (!loc) { showToast('กรุณาเลือกสถานที่ก่อน', 'warning'); return; }
-            // อนุญาตให้เข้าใหม่ได้ถ้า ออกงานไปแล้ว (TodayCheckout มีค่า)
             if (todayCheckin && !todayCheckout) { showToast('คุณเข้างานไปแล้ว และยังไม่ได้ออกงาน', 'warning'); return; }
+            
             setBtnLoading('btnIn', 'spinIn', 'txtIn', true);
             const now = new Date();
-            const today = now.toISOString().slice(0, 10);
+            const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            // Calculate late
+            
             let lateMin = 0;
+            let adminCheckInTime = '08:30'; 
+
             try {
                 const settResp = await api('?action=getSettings');
-                const checkInTime = settResp.data.checkInTime || '08:30';
-                const [h, m] = checkInTime.split(':').map(Number);
-                const expected = new Date(now); expected.setHours(h, m, 0, 0);
-                lateMin = Math.max(0, Math.round((now - expected) / 60000));
-            } catch (e) { }
+                console.log('Admin Settings Received:', settResp);
+                
+                // Flexible check for settings data structure
+                const sData = settResp.data || settResp;
+                if (sData.checkInTime) {
+                    adminCheckInTime = sData.checkInTime;
+                }
+            } catch (e) { 
+                console.error('Settings fetch error:', e); 
+            }
 
+            // Always calculate based on adminCheckInTime
+            const timeParts = adminCheckInTime.split(':');
+            const targetH = parseInt(timeParts[0]) || 8;
+            const targetM = parseInt(timeParts[1]) || 30;
+            
+            const targetTotalMins = (targetH * 60) + targetM;
+            const currentTotalMins = (now.getHours() * 60) + now.getMinutes();
+            lateMin = Math.max(0, currentTotalMins - targetTotalMins);
+
+            console.log(`Late Calculation: Current ${currentTotalMins} vs Target ${targetTotalMins} => Late: ${lateMin}`);
 
             try {
-                const sig = ''; // No signature
                 await api('', 'POST', {
                     action: 'addLog', userId: currentUser.id, userName: currentUser.name,
                     date: today, time, type: 'checkin', location: loc,
-                    lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: sig, lateMin
+                    lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: '', lateMin
                 });
                 todayCheckin = { type: 'checkin', time };
                 isCurrentlyIn = true;
                 updateTodayStatus();
-                alert('✅ ลงเวลาเข้างานสำเร็จ!');
+                
+                // Show clear feedback
+                if (lateMin > 0) {
+                    alert(`✅ บันทึกสำเร็จ\n⚠️ คุณเข้างานสาย: ${lateMin} นาที\n(เวลาเข้างานมาตรฐาน: ${adminCheckInTime})`);
+                } else {
+                    alert(`✅ บันทึกสำเร็จ\n🟢 เข้างานตรงเวลา`);
+                }
                 logout();
-                showToast(`✅ เข้างานสำเร็จ${lateMin > 0 ? ` (สาย ${lateMin} นาที)` : ''}`, 'success');
             } catch (e) {
                 showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
             } finally { setBtnLoading('btnIn', 'spinIn', 'txtIn', false, '🟢 เข้างาน'); }
@@ -1314,23 +1374,35 @@
             const loc = document.getElementById('locationSelect').value;
             if (!loc) { showToast('กรุณาเลือกสถานที่ก่อน', 'warning'); return; }
             if (!isCurrentlyIn) { showToast('คุณยังไม่ได้กดเข้างาน (ไม่สามารถออกงานได้)', 'error'); return; }
-            const now = new Date();
-            const today = now.toISOString().slice(0, 10);
-            const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            
             setBtnLoading('btnOut', 'spinOut', 'txtOut', true);
+            const now = new Date();
+            const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+            const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            
+            let earlyMin = 0;
             try {
-                const sig = ''; // No signature
+                const settResp = await api('?action=getSettings');
+                const adminCheckOutTime = settResp.data.checkOutTime || '16:30';
+                
+                const [targetH, targetM] = adminCheckOutTime.split(':').map(Number);
+                const targetTotalMins = (targetH * 60) + targetM;
+                const currentTotalMins = (now.getHours() * 60) + now.getMinutes();
+                
+                earlyMin = Math.max(0, targetTotalMins - currentTotalMins);
+            } catch (e) { console.error('Settings fetch error:', e); }
+
+            try {
                 await api('', 'POST', {
                     action: 'addLog', userId: currentUser.id, userName: currentUser.name,
                     date: today, time, type: 'checkout', location: loc,
-                    lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: sig, lateMin: 0
+                    lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: '', lateMin: -earlyMin // Store early departure as negative lateMin for logic
                 });
                 todayCheckout = { type: 'checkout', time };
                 isCurrentlyIn = false;
                 updateTodayStatus();
-                alert('✅ ลงเวลาออกงานสำเร็จ!');
+                alert('✅ ลงเวลาออกงานสำเร็จ!' + (earlyMin > 0 ? ` (ออกก่อน ${earlyMin} นาที)` : ''));
                 logout();
-                showToast('✅ ออกงานสำเร็จ', 'success');
             } catch (e) {
                 showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
             } finally { setBtnLoading('btnOut', 'spinOut', 'txtOut', false, '🔴 ออกงาน'); }
