@@ -1009,6 +1009,7 @@
             document.getElementById('captureBtn').style.display = 'none';
             document.getElementById('capturedImg').src = photoDataUrl;
             document.getElementById('faceCaptured').style.display = 'block';
+            validateSteps();
         }
 
         function retakeFace() {
@@ -1275,13 +1276,18 @@
                 document.getElementById('actionBtnGroup').style.display = 'none';
                 return;
             } else {
-                document.getElementById('step3').style.display = 'none';
+                // Keep step3 visible to show results, but action row will appear below
+                document.getElementById('step3').style.display = 'block';
             }
 
             // Action Buttons
             if (hasGPS && hasFace) {
                 document.getElementById('actionBtnGroup').style.display = 'flex';
                 document.getElementById('actionBtnGroup').classList.add('visible');
+                // Scroll to buttons for attention
+                setTimeout(() => {
+                    document.getElementById('actionBtnGroup').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
             } else {
                 document.getElementById('actionBtnGroup').style.display = 'none';
                 document.getElementById('actionBtnGroup').classList.remove('visible');
