@@ -1047,7 +1047,7 @@
                 const coTime = co ? formatTime(co.time) : '<span style="color:#ccc">---</span>';
                 const lateMin = ci ? (ci.lateMin || 0) : 0;
 
-                const isValidImg = (s) => s && s.length > 20 && s.startsWith('data:image');
+                const isValidImg = (s) => s && s.length > 100 && s.startsWith('data:image');
                 const photoHtml = isValidImg(ci?.photo) ? `<img src="${ci.photo}" class="thumb-img" onclick="previewImg(this.src)" title="ภาพเข้างาน" onerror="this.style.display='none'">` : '';
                 const sigHtml = isValidImg(ci?.signature) ? `<img src="${ci.signature}" class="thumb-sig" onclick="previewImg(this.src)" style="cursor:pointer" title="ลายเซ็นเข้างาน" onerror="this.style.display='none'">` : '';
                 const photoOutHtml = isValidImg(co?.photo) ? `<img src="${co.photo}" class="thumb-img" onclick="previewImg(this.src)" title="ภาพออกงาน" onerror="this.style.display='none'">` : '';

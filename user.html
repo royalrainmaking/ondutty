@@ -1122,14 +1122,26 @@
 
             // ===== Capture photo =====
             const video = document.getElementById('faceVideo');
+            
+            // Check for valid dimensions to prevent data:, (0-size canvas)
+            if (video.videoWidth === 0 || video.videoHeight === 0) {
+                showToast('❌ กล้องยังไม่พร้อม กรุณารอสักครู่', 'error');
+                isCapturing = false;
+                detectionCount = 0;
+                return;
+            }
+
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
-            ctx.scale(-1, 1);
-            ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
             
-            // Check if blank
+            // Set mirror effect
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Check if blank or invalid
             if (isCanvasBlank(canvas)) {
                 showToast('❌ ไม่สามารถบันทึกภาพได้ กรุณาลองใหม่', 'error');
                 retakeFace();
@@ -1137,6 +1149,13 @@
             }
             
             photoDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+            // Double check for data:, (empty result)
+            if (photoDataUrl === 'data:,' || JSON.stringify(photoDataUrl).length < 50) {
+                showToast('❌ ข้อมูลภาพผิดปกติ กรุณาสแกนใหม่', 'error');
+                retakeFace();
+                return;
+            }
 
             // Stop camera
             clearInterval(faceDetectionLoop);
@@ -1155,7 +1174,6 @@
 
         function retakeFace() {
             photoDataUrl = null;
-            faceDetected = false;
             faceVerified = false;
             currentDetection = null;
             detectionCount = 0;
@@ -1169,6 +1187,9 @@
             document.getElementById('captureBtn').style.display = 'none';
             document.getElementById('faceScannerFlow').style.display = 'none';
             document.getElementById('btnOpenCamera').style.display = 'block';
+            document.getElementById('videoContainer').style.display = 'none';
+            // Stop any existing stream
+            if (faceStream) faceStream.getTracks().forEach(t => t.stop());
             validateSteps();
         }
 
@@ -1437,11 +1458,16 @@
         }
 
         function isCanvasBlank(canvas) {
+            if (canvas.width === 0 || canvas.height === 0) return true;
             const context = canvas.getContext('2d');
-            const pixelBuffer = new Uint32Array(
-                context.getImageData(0, 0, canvas.width, canvas.height).data.buffer
-            );
-            return !pixelBuffer.some(color => color !== 0);
+            try {
+                const pixelBuffer = new Uint32Array(
+                    context.getImageData(0, 0, canvas.width, canvas.height).data.buffer
+                );
+                return !pixelBuffer.some(color => color !== 0);
+            } catch (e) {
+                return true;
+            }
         }
 
         function logout() { sessionStorage.clear(); window.location.href = 'index.html'; }
