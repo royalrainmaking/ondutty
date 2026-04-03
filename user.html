@@ -1338,24 +1338,24 @@
             const currentTotalMins = (now.getHours() * 60) + now.getMinutes();
             lateMin = Math.max(0, currentTotalMins - targetTotalMins);
 
-            console.log(`Late Calculation: Current ${currentTotalMins} vs Target ${targetTotalMins} => Late: ${lateMin}`);
+            const debugInfo = `⏰ ตรวจสอบเวลา:\n- เวลาตอนนี้: ${now.getHours()}:${now.getMinutes()}\n- เวลาเริ่มงาน: ${adminCheckInTime}\n- สาย: ${lateMin} นาที`;
+            console.log(debugInfo);
 
             try {
-                await api('', 'POST', {
+                const payload = {
                     action: 'addLog', userId: currentUser.id, userName: currentUser.name,
                     date: today, time, type: 'checkin', location: loc,
-                    lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: '', lateMin
-                });
+                    lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: '',
+                    lateMin: lateMin,
+                    late: lateMin // Send both just in case GAS uses different key
+                };
+
+                await api('', 'POST', payload);
                 todayCheckin = { type: 'checkin', time };
                 isCurrentlyIn = true;
                 updateTodayStatus();
                 
-                // Show clear feedback
-                if (lateMin > 0) {
-                    alert(`✅ บันทึกสำเร็จ\n⚠️ คุณเข้างานสาย: ${lateMin} นาที\n(เวลาเข้างานมาตรฐาน: ${adminCheckInTime})`);
-                } else {
-                    alert(`✅ บันทึกสำเร็จ\n🟢 เข้างานตรงเวลา`);
-                }
+                alert(`✅ บันทึกสำเร็จ!\n\n${debugInfo}`);
                 logout();
             } catch (e) {
                 showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
