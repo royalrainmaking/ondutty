@@ -608,7 +608,23 @@
             height: 36px;
             border-radius: 6px;
             object-fit: cover;
-            cursor: pointer
+            cursor: pointer;
+            background: #f0f0f0;
+            border: 1px solid #eee;
+            display: inline-block;
+            vertical-align: middle;
+            position: relative;
+        }
+        
+        .thumb-img::after {
+            content: "🖼️";
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            z-index: -1;
         }
 
         .thumb-sig {
@@ -1031,9 +1047,10 @@
                 const coTime = co ? formatTime(co.time) : '<span style="color:#ccc">---</span>';
                 const lateMin = ci ? (ci.lateMin || 0) : 0;
 
-                const photoHtml = (ci && ci.photo) ? `<img src="${ci.photo}" class="thumb-img" onclick="previewImg(this.src)" title="ภาพเข้างาน">` : '';
-                const sigHtml = (ci && ci.signature) ? `<img src="${ci.signature}" class="thumb-sig" onclick="previewImg(this.src)" style="cursor:pointer" title="ลายเซ็นเข้างาน">` : '';
-                const photoOutHtml = (co && co.photo) ? `<img src="${co.photo}" class="thumb-img" onclick="previewImg(this.src)" title="ภาพออกงาน">` : '';
+                const isValidImg = (s) => s && s.length > 20 && s.startsWith('data:image');
+                const photoHtml = isValidImg(ci?.photo) ? `<img src="${ci.photo}" class="thumb-img" onclick="previewImg(this.src)" title="ภาพเข้างาน" onerror="this.style.display='none'">` : '';
+                const sigHtml = isValidImg(ci?.signature) ? `<img src="${ci.signature}" class="thumb-sig" onclick="previewImg(this.src)" style="cursor:pointer" title="ลายเซ็นเข้างาน" onerror="this.style.display='none'">` : '';
+                const photoOutHtml = isValidImg(co?.photo) ? `<img src="${co.photo}" class="thumb-img" onclick="previewImg(this.src)" title="ภาพออกงาน" onerror="this.style.display='none'">` : '';
                 const mediaHtml = [photoHtml, sigHtml, photoOutHtml].filter(x => x).join(' ') || '-';
 
                 const mapObj = ci || co;
