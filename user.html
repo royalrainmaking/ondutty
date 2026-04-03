@@ -1325,9 +1325,6 @@
 
             try {
                 const settResp = await api('?action=getSettings');
-                console.log('Admin Settings Received:', settResp);
-                
-                // Flexible check for settings data structure
                 const sData = settResp.data || settResp;
                 if (sData.checkInTime) {
                     adminCheckInTime = sData.checkInTime;
@@ -1336,12 +1333,24 @@
                 console.error('Settings fetch error:', e); 
             }
 
-            // Always calculate based on adminCheckInTime
-            const timeParts = adminCheckInTime.split(':');
-            const targetH = parseInt(timeParts[0]) || 8;
-            const targetM = parseInt(timeParts[1]) || 30;
-            
-            const targetTotalMins = (targetH * 60) + targetM;
+            // Function to parse various time formats (HH:mm or ISO Date string)
+            function parseTimeToMins(val) {
+                if (!val) return 8 * 60 + 30; // Default
+                // Handle ISO Date Strings (like 1899-12-30T01:47:56.000Z)
+                if (val.includes('T')) {
+                    const d = new Date(val);
+                    if (!isNaN(d.getTime())) {
+                        return (d.getHours() * 60) + d.getMinutes();
+                    }
+                }
+                // Handle HH:mm formats
+                const parts = String(val).split(':');
+                const h = parseInt(parts[0]) || 8;
+                const m = parseInt(parts[1]) || 30;
+                return (h * 60) + m;
+            }
+
+            const targetTotalMins = parseTimeToMins(adminCheckInTime);
             const currentTotalMins = (now.getHours() * 60) + now.getMinutes();
             lateMin = Math.max(0, currentTotalMins - targetTotalMins);
 
