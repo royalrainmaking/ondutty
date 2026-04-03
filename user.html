@@ -925,6 +925,7 @@
 
             const descriptor = currentDetection.descriptor; // Float32Array 128 values
             showToast('⏳ กำลังประมวลผล...', 'info');
+            document.getElementById('actionBtnGroup').style.display = 'none'; // Force hide during proc
 
             // ===== กรณีที่ 1: ยังไม่เคยลงทะเบียนใบหน้า =====
             const isFirstTime = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null';
@@ -959,11 +960,12 @@
                 const resEl = document.getElementById('faceResultMsg');
                 if (distance > FACE_THRESHOLD) {
                     faceVerified = false;
+                    photoDataUrl = null; // Clear photo if failed
                     resEl.style.color = '#ef4444';
                     resEl.textContent = `❌ ใบหน้าไม่ตรงกัน (ระยะ: ${distance.toFixed(2)})`;
                     document.getElementById('btnTryAgain').style.display = 'block';
                     document.getElementById('btnContinue').style.display = 'none';
-                    showToast('❌ ตรวจสอบใบหน้าไม่ผ่าน', 'error');
+                    showToast('❌ ตรวจสอบใบหน้าไม่ผ่าน กรุณาสแกนใหม่', 'error');
                 } else {
                     faceVerified = true;
                     resEl.style.color = '#10b981';
