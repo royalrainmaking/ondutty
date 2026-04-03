@@ -807,8 +807,6 @@
             </button>
         </div>
 
-        <!-- Hidden Signature -->
-        <canvas id="sigCanvas" width="600" height="140" style="display:none"></canvas>
 
         <div class="btn-group" id="actionBtnGroup" style="display:none; transition: all 0.3s">
             <button class="btn-checkin" id="btnIn" onclick="doCheckIn()">
@@ -868,7 +866,7 @@
             if (!stored || !API_URL) { window.location.href = 'index.html'; return; }
             currentUser = JSON.parse(stored);
             if (String(currentUser.role).toLowerCase() === 'admin' || currentUser.id === 'admin') { window.location.href = 'admin.html'; return; }
-            startClock(); getGPS(); initSig();
+            startClock(); getGPS();
             loadProfile();
             loadTodayLogs();
             startFaceScanner();
@@ -913,7 +911,6 @@
 
 
 
-        function clearSig() { sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height); validateSteps(); }
 
         // ====== Face Recognition System ======
         let faceStream = null;
@@ -1216,11 +1213,6 @@
             validateSteps();
         }
 
-        function initSig() {
-            sigCanvas = document.getElementById('sigCanvas');
-            sigCtx = sigCanvas.getContext('2d');
-        }
-        function clearSig() { }
 
 
 
