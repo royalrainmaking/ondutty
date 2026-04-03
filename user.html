@@ -1025,7 +1025,6 @@
             const btnOut = document.getElementById('btnOut');
             const txtIn = document.getElementById('txtIn');
             const txtOut = document.getElementById('txtOut');
-            document.getElementById('actionBtnGroup').style.display = 'flex';
             el.style.opacity = '1';
 
             if (isCurrentlyIn) {
@@ -1050,6 +1049,7 @@
                 if (txtIn) txtIn.textContent = '🟢 เข้างาน';
                 btnOut.style.display = 'none';
             }
+            validateSteps();
         }
 
         async function doCheckIn() {
@@ -1185,32 +1185,38 @@
             const hasFace = !!photoDataUrl;
             const sigBlank = isCanvasBlank(sigCanvas);
 
-            // Step 1 -> Show Step 2 (GPS)
-            if (loc) {
-                document.getElementById('step2').style.display = 'block';
-            } else {
+            // Step 1: Location
+            if (!loc) {
+                document.getElementById('step1').style.display = 'block';
                 document.getElementById('step2').style.display = 'none';
+                document.getElementById('step3').style.display = 'none';
+                document.getElementById('step4').style.display = 'none';
+                document.getElementById('actionBtnGroup').style.display = 'none';
+                return;
+            } else {
+                document.getElementById('step1').style.display = 'none';
             }
 
-            // Step 2 -> Show Step 3 (Face Scan)
-            if (loc && hasGPS) {
+            // Step 2 & 3: GPS & Face Scan (Consolidated for smoother flow)
+            if (loc && !hasFace) {
+                document.getElementById('step2').style.display = 'block';
                 document.getElementById('step3').style.display = 'block';
+                document.getElementById('step4').style.display = 'none';
+                document.getElementById('actionBtnGroup').style.display = 'none';
+                return;
             } else {
+                document.getElementById('step2').style.display = 'none';
                 document.getElementById('step3').style.display = 'none';
             }
 
-            // Step 3 -> Show Step 4 (Signature)
-            if (loc && hasGPS && hasFace) {
+            // Step 4: Signature
+            if (loc && hasFace && sigBlank) {
                 document.getElementById('step4').style.display = 'block';
-            } else {
-                document.getElementById('step4').style.display = 'none';
-            }
-
-            // Step 4 -> Show Buttons
-            if (loc && hasGPS && hasFace && !sigBlank) {
-                document.getElementById('actionBtnGroup').style.display = 'flex';
-            } else {
                 document.getElementById('actionBtnGroup').style.display = 'none';
+                return;
+            } else if (loc && hasFace && !sigBlank) {
+                document.getElementById('step4').style.display = 'none'; // Hide sig after it's done too
+                document.getElementById('actionBtnGroup').style.display = 'flex';
             }
         }
 
