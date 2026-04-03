@@ -831,16 +831,12 @@
                     </div>
                 </div>
                 <div class="settings-section">
-                    <h3>⏰ กฎระเบียบเวลาและเงินเดือน</h3>
+                    <h3>⏰ กฎระเบียบเวลาเข้า-ออก</h3>
                     <div class="settings-grid">
                         <div class="form-group"><label>เวลาเข้างานมาตรฐาน</label><input type="time" id="stCheckIn">
                         </div>
                         <div class="form-group"><label>เวลาออกงานมาตรฐาน</label><input type="time" id="stCheckOut">
                         </div>
-                        <div class="form-group"><label>หักเงินมาสาย (บาท/นาที)</label><input type="number"
-                                id="stLateRate" min="0"></div>
-                        <div class="form-group"><label>วันทำงานมาตรฐาน (วัน/เดือน)</label><input type="number"
-                                id="stWorkDays" min="1"></div>
                     </div>
                 </div>
                 <button class="btn-primary" onclick="saveSettingsData()">💾 บันทึกการตั้งค่า</button>
@@ -1251,8 +1247,6 @@
         // --- SALARY ---
         async function renderSalary() {
             const month = document.getElementById('salaryMonth').value; if (!month) return;
-            const lateRate = Number(appSettings.latePerMin) || 5;
-            const workDays = Number(appSettings.workDaysPerMonth) || 22;
             showLoading(true);
             try {
                 const r = await api(`?action=getLogs&dateFrom=${month}-01&dateTo=${month}-31`);
@@ -1262,59 +1256,43 @@
                     const myLogs = logs.filter(l => String(l.userId) === String(u.id));
                     const checkins = myLogs.filter(l => l.type === 'checkin');
                     const worked = new Set(checkins.map(l => l.date)).size;
-                    const absent = Math.max(0, workDays - worked);
                     const totalLate = checkins.reduce((s, l) => s + (Number(l.lateMin) || 0), 0);
-                    const deductLate = totalLate * lateRate;
-                    const deductAbsent = absent * (u.salary / workDays);
-                    const totalDeduct = deductLate + deductAbsent;
-                    const net = Math.max(0, u.salary - totalDeduct);
                     return `<tr>
         <td><strong>${u.name}</strong></td>
         <td style="color:${u.shift === 'standard' ? '#aaa' : '#f7931e'}">${u.shift === 'standard' ? 'มาตรฐาน' : u.shift}</td>
-        <td>${Number(u.salary).toLocaleString()} ฿</td>
         <td>${worked} วัน</td>
         <td class="salary-late">${totalLate} นาที</td>
-        <td class="salary-deduct">- ${Math.round(totalDeduct).toLocaleString()} ฿</td>
-        <td class="salary-net">${Math.round(net).toLocaleString()} ฿</td>
-        <td><button class="btn-sm" style="background:#1a1a2e;color:#fff" onclick="printSlip('${u.id}','${month}',${net},${totalLate},${deductLate},${worked},${absent},${totalDeduct})">🖨️</button></td>
+        <td><button class="btn-sm" style="background:#1a1a2e;color:#fff" onclick="printSlip('${u.id}','${month}',${worked},${totalLate})">🖨️ เปิดรายงาน</button></td>
       </tr>`;
                 }).join('');
             } catch (e) { showToast('❌ ' + e.message, 'error'); }
             finally { showLoading(false); }
         }
 
-        function printSlip(userId, month, net, totalLate, deductLate, worked, absent, totalDeduct) {
+        function printSlip(userId, month, worked, totalLate) {
             const u = allUsers.find(x => String(x.id) === String(userId)); if (!u) return;
-            const wDays = Number(appSettings.workDaysPerMonth) || 22;
-            const deductAbsent = Math.max(0, absent) * (u.salary / wDays);
-            const w = window.open('', '_blank', 'width=500,height=650');
+            const w = window.open('', '_blank', 'width=500,height=600');
             const rows = [
                 ['ชื่อ-สกุล', '<strong>' + u.name + '</strong>'],
                 ['รหัสพนักงาน', u.phone],
-                ['เงินเดือนฐาน', Number(u.salary).toLocaleString() + ' ฿'],
-                ['วันทำงาน', worked + ' / ' + wDays + ' วัน'],
-                ['นาทีที่สาย', totalLate + ' นาที (หัก ' + Math.round(deductLate).toLocaleString() + ' ฿)'],
-                ['วันขาด', Math.max(0, absent) + ' วัน (หัก ' + Math.round(deductAbsent).toLocaleString() + ' ฿)'],
+                ['วันทำงานที่บันทึกไว้', worked + ' วัน'],
+                ['นาทีที่สายสะสม', totalLate + ' นาที'],
             ];
-            const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>สลิป</title>'
+            const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>รายงานเวลา</title>'
                 + '<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">'
                 + '<style>body{font-family:Sarabun,sans-serif;padding:32px;max-width:420px;margin:0 auto}'
-                + 'h2{text-align:center;color:#f7931e;margin-bottom:4px}'
+                + 'h2{text-align:center;color:#6366f1;margin-bottom:4px}'
                 + 'p.sub{text-align:center;color:#888;margin-bottom:16px;font-size:14px}'
                 + 'table{width:100%;border-collapse:collapse}'
-                + 'td{padding:9px 12px;border:1px solid #e8e8e8;font-size:14px}'
-                + '.total{background:#f0fdf4;font-weight:700}'
-                + '.net{font-size:20px;color:#16a34a;font-weight:700;text-align:right}'
-                + '.footer{margin-top:32px;display:grid;grid-template-columns:1fr 1fr;gap:40px;text-align:center;font-size:13px;color:#666}'
+                + 'td{padding:12px 15px;border:1px solid #e8e8e8;font-size:15px}'
+                + '.footer{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px;text-align:center;font-size:13px;color:#666}'
                 + '</style></head><body>'
-                + '<h2>🧾 สลิปเงินเดือน</h2>'
-                + '<p class="sub">' + (appSettings.companyName || '') + '  |  เดือน ' + month + '</p>'
+                + '<h2>📊 สรุปประวัติลงเวลางาน</h2>'
+                + '<p class="sub">' + (appSettings.companyName || '') + '  |  ประจำเดือน ' + month + '</p>'
                 + '<table>' + rows.map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join('')
-                + '<tr class="total"><td colspan="2">รวมยอดหัก: - ' + Math.round(totalDeduct).toLocaleString() + ' ฿</td></tr>'
-                + '<tr class="total"><td>รับสุทธิ</td><td class="net">' + Math.round(net).toLocaleString() + ' ฿</td></tr>'
                 + '</table>'
-                + '<div class="footer"><div>_______________<br>' + (appSettings.supervisorName || 'หัวหน้างาน') + '</div>'
-                + '<div>_______________<br>' + (appSettings.approverName || 'ผู้อนุมัติ') + '</div></div>'
+                + '<div class="footer"><div>_______________<br>ลายเซ็นพนักงาน</div>'
+                + '<div>_______________<br>' + (appSettings.supervisorName || 'หัวหน้างาน') + '</div></div>'
                 + '</bo' + 'dy></html>';
             w.document.write(html);
             w.document.close();
@@ -1359,13 +1337,31 @@
         // --- SETTINGS ---
         function fillSettingsForm() {
             const s = appSettings;
+            
+            // Helper to extract HH:mm from various formats
+            function toTimeTag(val) {
+                if (!val) return '';
+                const str = String(val);
+                if (str.includes('T')) {
+                    const timePart = str.split('T')[1];
+                    let hStr = timePart.split(':')[0];
+                    let mStr = timePart.split(':')[1];
+                    let h = parseInt(hStr);
+                    if (str.endsWith('Z')) h = (h + 7) % 24; 
+                    return h.toString().padStart(2, '0') + ':' + mStr.substring(0, 2).padStart(2, '0');
+                }
+                const parts = str.split(':');
+                if (parts.length >= 2) {
+                    return parts[0].padStart(2, '0') + ':' + parts[1].substring(0, 2).padStart(2, '0');
+                }
+                return str; 
+            }
+
             document.getElementById('stCompany').value = s.companyName || '';
             document.getElementById('stSupervisor').value = s.supervisorName || '';
             document.getElementById('stApprover').value = s.approverName || '';
-            document.getElementById('stCheckIn').value = s.checkInTime || '08:30';
-            document.getElementById('stCheckOut').value = s.checkOutTime || '16:30';
-            document.getElementById('stLateRate').value = s.latePerMin || 5;
-            document.getElementById('stWorkDays').value = s.workDaysPerMonth || 22;
+            document.getElementById('stCheckIn').value = toTimeTag(s.checkInTime) || '08:30';
+            document.getElementById('stCheckOut').value = toTimeTag(s.checkOutTime) || '16:30';
         }
 
         async function saveSettingsData() {
@@ -1375,9 +1371,7 @@
                 supervisorName: document.getElementById('stSupervisor').value,
                 approverName: document.getElementById('stApprover').value,
                 checkInTime: document.getElementById('stCheckIn').value,
-                checkOutTime: document.getElementById('stCheckOut').value,
-                latePerMin: document.getElementById('stLateRate').value,
-                workDaysPerMonth: document.getElementById('stWorkDays').value
+                checkOutTime: document.getElementById('stCheckOut').value
             };
             showLoading(true);
             try {

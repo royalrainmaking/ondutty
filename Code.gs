@@ -237,7 +237,7 @@ function saveSchedule(data) {
 // ---- SETTINGS ----
 function getSettings() {
   const sheet = getSheet('settings');
-  const data = sheet.getDataRange().getValues();
+  const data = sheet.getDataRange().getDisplayValues();
   if (data.length <= 1) return {success:true, data:{}};
   const settings = {};
   data.slice(1).forEach(row => { if(row[0]) settings[row[0]] = row[1]; });
