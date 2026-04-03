@@ -906,7 +906,8 @@
 
         function startFaceScanning() {
             document.getElementById('startScanBtn').style.display = 'none';
-            if (!currentUser.faceDescriptor) {
+            const isFirst = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null';
+            if (isFirst) {
                 document.getElementById('captureBtn').style.display = 'block';
                 showToast('💡 ครั้งแรก: มองที่กล้องแล้วกด "บันทึกภาพใบหน้า"', 'info');
             } else {
@@ -921,16 +922,14 @@
                 return;
             }
 
-            const capStatus = document.getElementById('capStatus');
-            capStatus.textContent = '⏳ กำลังประมวลผล...';
-
             const descriptor = currentDetection.descriptor; // Float32Array 128 values
+            showToast('⏳ กำลังประมวลผล...', 'info');
 
             // ===== กรณีที่ 1: ยังไม่เคยลงทะเบียนใบหน้า =====
             const isFirstTime = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null';
             if (isFirstTime) {
                 const confirm_ = confirm('📸 นี่คือการลงทะเบียนใบหน้าครั้งแรก\nระบบจะบันทึกใบหน้าของคุณไว้สำหรับยืนยันตัวตน\nยืนยันหรือไม่?');
-                if (!confirm_) { capStatus.textContent = '🆕 ครั้งแรก: มองกล้องแล้วกดบันทึกใบหน้า'; return; }
+                if (!confirm_) { isCapturing = false; detectionCount = 0; return; }
 
                 // บันทึก descriptor ลง Sheets
                 const descArr = Array.from(descriptor);
