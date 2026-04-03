@@ -796,6 +796,7 @@
         let currentDetection = null;  // latest full detection object
         let detectionCount = 0;       // For auto-capture
         let isCapturing = false;      // guard
+        let faceVerified = false;     // SUCCESS/FAIL flag
         const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
         const FACE_THRESHOLD = 0.5;   // euclidean distance threshold
 
@@ -943,6 +944,7 @@
                 });
                 currentUser.faceDescriptor = JSON.stringify(descArr);
                 sessionStorage.setItem('wfh_current', JSON.stringify(currentUser));
+                faceVerified = true;
                 const resEl = document.getElementById('faceResultMsg');
                 resEl.style.color = '#10b981';
                 resEl.textContent = '✅ ลงทะเบียนใบหน้าสำเร็จ';
@@ -956,12 +958,14 @@
 
                 const resEl = document.getElementById('faceResultMsg');
                 if (distance > FACE_THRESHOLD) {
+                    faceVerified = false;
                     resEl.style.color = '#ef4444';
                     resEl.textContent = `❌ ใบหน้าไม่ตรงกัน (ระยะ: ${distance.toFixed(2)})`;
                     document.getElementById('btnTryAgain').style.display = 'block';
                     document.getElementById('btnContinue').style.display = 'none';
                     showToast('❌ ตรวจสอบใบหน้าไม่ผ่าน', 'error');
                 } else {
+                    faceVerified = true;
                     resEl.style.color = '#10b981';
                     resEl.textContent = `✅ ยืนยันตัวตนสำเร็จ`;
                     document.getElementById('btnTryAgain').style.display = 'none';
@@ -994,6 +998,7 @@
         function retakeFace() {
             photoDataUrl = null;
             faceDetected = false;
+            faceVerified = false;
             currentDetection = null;
             detectionCount = 0;
             isCapturing = false;
@@ -1196,7 +1201,7 @@
 
         function validateSteps() {
             const hasGPS = gpsLat !== null && gpsLng !== null;
-            const hasFace = !!photoDataUrl;
+            const hasFace = !!photoDataUrl && faceVerified;
 
             // Wait for GPS
             if (!hasGPS) {
