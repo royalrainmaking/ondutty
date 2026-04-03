@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบลงเวลา Work From Home</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #a7f3d0 0%, #10b981 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px
+    }
+
+    .login-card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2)
+    }
+
+    .logo-wrap {
+      text-align: center;
+      margin-bottom: 28px
+    }
+
+    .logo-icon {
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2)
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 4px
+    }
+
+    .subtitle {
+      color: #888;
+      font-size: 14px
+    }
+
+    .form-group {
+      margin-bottom: 20px
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #444;
+      margin-bottom: 8px
+    }
+
+    input,
+    .custom-select {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid #e8e8e8;
+      border-radius: 12px;
+      font-size: 15px;
+      font-family: 'Sarabun', sans-serif;
+      transition: all .3s;
+      outline: none;
+      background: #fafafa;
+      appearance: none;
+      /* Hide default arrow to look cleaner, though optional */
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url('data:image/svg+xml;utf8,<svg fill="%23444" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+    }
+
+    input:focus,
+    .custom-select:focus {
+      border-color: #10b981;
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1)
+    }
+
+    .api-group {
+      margin-bottom: 16px
+    }
+
+    .api-group label {
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 4px
+    }
+
+    .api-group input {
+      font-size: 12px;
+      padding: 10px 14px;
+      color: #666
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 16px;
+      background: #059669;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: 'Sarabun', sans-serif;
+      cursor: pointer;
+      transition: all .3s;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px
+    }
+
+    .btn-login:hover {
+      background: #047857;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(16, 185, 129, 0.2)
+    }
+
+    .btn-login:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+      transform: none
+    }
+
+    .error-msg {
+      background: #fff5f5;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 16px;
+      display: none
+    }
+
+    .demo-info {
+      margin-top: 20px;
+      padding: 14px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      font-size: 13px;
+      color: #666
+    }
+
+    .demo-info strong {
+      color: #f7931e
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #fff;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .api-badge {
+      background: #e8f5e9;
+      color: #2e7d32;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-top: 6px
+    }
+
+    .admin-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      backdrop-filter: blur(4px);
+    }
+
+    .admin-btn:hover {
+      background: rgba(255, 255, 255, 0.4);
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+
+<body>
+  <button class="admin-btn" onclick="directAdminLogin()">⚙️ ระบบแอดมิน</button>
+  <div class="login-card">
+    <div class="logo-wrap">
+      <img src="logo_ryrweb.png" class="logo-icon"
+        style="object-fit:contain;background:none;box-shadow:none;border-radius:0;" alt="Logo">
+      <h1>ระบบลงเวลา WFH</h1>
+      <p class="subtitle">เข้าสู่ระบบเพื่อดำเนินการต่อ</p>
+    </div>
+    <div class="api-group" style="display:none">
+      <label>🔗 Google Apps Script URL (API)</label>
+      <input type="url" id="apiUrl" placeholder="https://script.google.com/macros/s/..." value="">
+      <div id="apiStatus"></div>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="form-group">
+      <label>เบอร์โทรศัพท์ (สำหรับเข้าสู่ระบบ)</label>
+      <input type="text" id="username" placeholder="กรอกเบอร์โทรศัพท์" autocomplete="off">
+    </div>
+    <div id="registerGroup" style="display:none">
+      <div class="form-group">
+        <label>ชื่อ-นามสกุล (สำหรับลงทะเบียนผู้ใช้ใหม่)</label>
+        <input type="text" id="fullName" placeholder="กรอกชื่อ-นามสกุล" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>กลุ่ม/ฝ่าย</label>
+        <select id="department" class="custom-select">
+          <option value="">-- เลือกกลุ่ม/ฝ่าย --</option>
+          <option value="ฝบบ">ฝบบ.</option>
+          <option value="กซอ">กซอ.</option>
+          <option value="กอบ">กอบ.</option>
+          <option value="กกบ">กกบ.</option>
+          <option value="กวบ">กวบ.</option>
+          <option value="สบน">สบน.</option>
+          <option value="สบค">สบค.</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>ตำแหน่ง</label>
+        <select id="position" class="custom-select">
+          <option value="">-- เลือกตำแหน่ง --</option>
+          <option value="ข้าราชการ">ข้าราชการ</option>
+          <option value="ลูกจ้างประจำ">ลูกจ้างประจำ</option>
+          <option value="พนักงานราชการ">พนักงานราชการ</option>
+          <option value="จ้างเหมาบริการ">จ้างเหมาบริการ</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn-login" id="loginBtn" onclick="doLogin()">
+      <div class="spinner" id="loginSpinner"></div>
+      <span id="loginText">เข้าสู่ระบบ</span>
+    </button>
+    <div class="demo-info" style="display:none">
+      <strong>🔑 บัญชีทดสอบ</strong><br>
+      แอดมิน: พิมพ์ <strong>admin</strong> เพื่อเข้าจัดการระบบ<br>
+      ผู้ใช้ทั่วไป: พิมพ์เบอร์โทรได้เลย หากยังไม่เคยมีในระบบ ระบบจะให้ลงทะเบียน
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'wfh_api_url';
+    const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbyEKatWO7EuKi9Xh7QTy_UpnxpgQuKQKLKoeI3eKu8VQBDDheKkaNbhZPpYLa00Pk3NfA/exec';
+
+    function init() {
+      // บังคับใช้ API ล่าสุดเสมอ เนื่องจากลบช่องกรอก API ออกไปแล้ว
+      localStorage.setItem(STORAGE_KEY, DEFAULT_API);
+      document.getElementById('apiUrl').value = DEFAULT_API;
+      setApiStatus('✅ เชื่อมต่อ Google Sheets พร้อมใช้งาน', 'success');
+    }
+
+    function directAdminLogin() {
+      const pass = prompt('🔑 กรุณากรอกรหัสผ่านสำหรับผู้ดูแลระบบ:');
+      if (pass === '12345678') {
+        const dummyAdmin = { id: 'admin', phone: 'admin', name: 'Master Admin', role: 'admin', active: true };
+        localStorage.setItem(STORAGE_KEY, DEFAULT_API);
+        sessionStorage.setItem('wfh_current', JSON.stringify(dummyAdmin));
+        sessionStorage.setItem('wfh_api', DEFAULT_API);
+        window.location.href = 'admin.html';
+      } else if (pass !== null) {
+        alert('❌ รหัสผ่านไม่ถูกต้อง');
+      }
+    }
+
+    function setApiStatus(msg, type) {
+      const el = document.getElementById('apiStatus');
+      el.className = 'api-badge';
+      el.style.background = type === 'success' ? '#e8f5e9' : type === 'error' ? '#fef2f2' : '#fff3e0';
+      el.style.color = type === 'success' ? '#2e7d32' : type === 'error' ? '#dc2626' : '#d97706';
+      el.textContent = msg;
+    }
+
+    function setLoading(on) {
+      const btn = document.getElementById('loginBtn');
+      const spin = document.getElementById('loginSpinner');
+      const txt = document.getElementById('loginText');
+      btn.disabled = on;
+      spin.style.display = on ? 'block' : 'none';
+      txt.textContent = on ? 'กำลังเชื่อมต่อ...' : 'เข้าสู่ระบบ';
+    }
+
+    async function doLogin() {
+      const apiUrl = document.getElementById('apiUrl').value.trim();
+      const u = document.getElementById('username').value.trim();
+      const n = document.getElementById('fullName').value.trim();
+      const d = document.getElementById('department').value;
+      const p = document.getElementById('position').value;
+      const regGroup = document.getElementById('registerGroup');
+      const errEl = document.getElementById('errorMsg');
+      const isRegistering = regGroup.style.display === 'block';
+
+      // รีเซ็ตการตกแต่ง error กลับเป็นแบบเดิมเผื่อถูกเปลี่ยนจากข้อความลงทะเบียน
+      errEl.style.display = 'none';
+      errEl.style.background = '#fff5f5';
+      errEl.style.color = '#dc2626';
+      errEl.style.borderColor = '#fecaca';
+
+      if (!apiUrl) {
+        errEl.textContent = '⚠️ กรุณากรอก Google Apps Script URL ก่อน';
+        errEl.style.display = 'block'; return;
+      }
+      if (!u) {
+        errEl.textContent = '⚠️ กรุณากรอกเบอร์โทรศัพท์';
+        errEl.style.display = 'block'; return;
+      }
+
+      setLoading(true);
+      try {
+        const resp = await fetch(apiUrl + '?action=getUsers');
+        const json = await resp.json();
+        if (!json.success) throw new Error(json.error || 'API Error');
+        const users = json.data || [];
+        const user = users.find(x => (String(x.phone) === u || String(x.id) === u || String(x.phone).toLowerCase() === u.toLowerCase()) && (String(x.active) === 'true' || x.active === true));
+
+        if (user) {
+          // มีผู้ใช้อยู่แล้ว ถ้าเป็น admin ให้ถามรหัสผ่านก่อน
+          if (String(user.role).toLowerCase() === 'admin' || user.id === 'admin') {
+            const pass = prompt('🔑 กรุณากรอกรหัสผ่านสำหรับ Admin:');
+            if (pass !== '12345678' && pass !== String(user.password)) {
+              errEl.textContent = '❌ รหัสผ่าน Admin ไม่ถูกต้อง';
+              errEl.style.display = 'block';
+              setLoading(false);
+              return;
+            }
+          }
+
+          // ผ่านแล้ว ล็อกอินทันที
+          localStorage.setItem(STORAGE_KEY, apiUrl);
+          sessionStorage.setItem('wfh_current', JSON.stringify(user));
+          sessionStorage.setItem('wfh_api', apiUrl);
+          const isAdmin = String(user.role).toLowerCase() === 'admin' || user.id === 'admin';
+          window.location.href = isAdmin ? 'admin.html' : 'user.html';
+        } else {
+          // ไม่พบผู้ใช้ -> ต้องลงทะเบียน
+          if (!isRegistering) {
+            regGroup.style.display = 'block';
+            errEl.textContent = '👋 ยินดีต้อนรับ! ไม่พบข้อมูลของคุณในระบบ กรุณากรอกชื่อเพื่อลงทะเบียน';
+            errEl.style.display = 'block';
+            errEl.style.background = '#eff6ff';
+            errEl.style.color = '#1d4ed8';
+            errEl.style.borderColor = '#bfdbfe';
+            document.getElementById('loginText').textContent = 'บันทึกและเข้าสู่ระบบ';
+            setLoading(false);
+            return;
+          } else {
+            // กำลังกดลงทะเบียน
+            if (!n || !d || !p) {
+              errEl.textContent = '⚠️ กรุณากรอกข้อมูลให้ครบถ้วน (ชื่อ, กลุ่ม/ฝ่าย, ตำแหน่ง)';
+              errEl.style.display = 'block';
+              setLoading(false);
+              return;
+            }
+
+            // สร้างผู้ใช้ใหม่
+            // ถ้าชื่อผู้ใช้เป็น admin ให้สิทธิ์เป็น admin ทันที
+            const finalRole = String(u).toLowerCase() === 'admin' ? 'admin' : 'user';
+            const regData = { action: 'saveUser', id: String(u), phone: String(u), name: String(n), password: String(u), role: finalRole, salary: '0', shift: 'standard', active: true, department: d, position: p };
+            const regResp = await fetch(apiUrl, { method: 'POST', body: JSON.stringify(regData) });
+            const regJson = await regResp.json();
+            if (!regJson.success) throw new Error(regJson.error);
+
+            // ล็อกอินหลังจากลงทะเบียนเสร็จ
+            const newUser = { id: String(u), phone: String(u), name: String(n), password: String(u), role: finalRole, salary: '0', shift: 'standard', active: true, department: d, position: p };
+            localStorage.setItem(STORAGE_KEY, apiUrl);
+            sessionStorage.setItem('wfh_current', JSON.stringify(newUser));
+            sessionStorage.setItem('wfh_api', apiUrl);
+            window.location.href = finalRole === 'admin' ? 'admin.html' : 'user.html';
+          }
+        }
+      } catch (err) {
+        errEl.textContent = '❌ ไม่สามารถเชื่อมต่อ API ได้: ' + err.message;
+        errEl.style.display = 'block';
+        setApiStatus('❌ เชื่อมต่อไม่ได้', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    document.addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
+    init();
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ลงเวลางาน - WFH System</title>
+    <!-- face-api.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background: #f0fdf4;
+            min-height: 100vh
+        }
+
+        .topnav {
+            background: #fff;
+            border-bottom: 1px solid #e8e8e8;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+            position: sticky;
+            top: 0;
+            z-index: 100
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 4px
+        }
+
+        .nav-tab {
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: #888;
+            font-family: 'Sarabun', sans-serif;
+            transition: all .2s
+        }
+
+        .nav-tab.active {
+            background: #ecfdf5;
+            color: #10b981
+        }
+
+        .nav-tab:hover {
+            background: #f8f8f8;
+            color: #444
+        }
+
+        .btn-logout {
+            padding: 8px 18px;
+            border-radius: 10px;
+            background: #fff5f5;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: 'Sarabun', sans-serif;
+            font-weight: 600
+        }
+
+        .page {
+            display: none;
+            padding: 24px;
+            max-width: 760px;
+            margin: 0 auto
+        }
+
+        .page.active {
+            display: block
+        }
+
+        .clock-card {
+            background: linear-gradient(135deg, #059669, #10b981, #34d399);
+            border-radius: 24px;
+            padding: 32px;
+            text-align: center;
+            color: #fff;
+            margin-bottom: 20px
+        }
+
+        .clock-greeting {
+            font-size: 16px;
+            margin-bottom: 8px;
+            opacity: .9
+        }
+
+        .clock-time {
+            font-size: 56px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            margin-bottom: 8px
+        }
+
+        .clock-date {
+            font-size: 15px;
+            opacity: .85;
+            margin-bottom: 16px
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5)
+        }
+
+        .section-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06)
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 16px
+        }
+
+        select,
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e8e8e8;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: 'Sarabun', sans-serif;
+            outline: none;
+            background: #fafafa
+        }
+
+        select:focus,
+        input:focus {
+            border-color: #10b981
+        }
+
+        .map-area {
+            background: #e8f0fe;
+            border-radius: 12px;
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+            transition: all .3s
+        }
+
+        .cam-area {
+            background: #f0fdf4;
+            border-radius: 12px;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #10b981;
+            margin-bottom: 12px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden
+        }
+
+        .cam-area img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 10px
+        }
+
+        .btn-camera {
+            width: 100%;
+            padding: 14px;
+            background: #10b981;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: 'Sarabun', sans-serif;
+            cursor: pointer;
+            margin-bottom: 16px
+        }
+
+        .sig-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px
+        }
+
+        .btn-clear {
+            padding: 6px 14px;
+            background: #fff5f5;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: 'Sarabun', sans-serif
+        }
+
+        canvas#sigCanvas {
+            border: 2px solid #e8e8e8;
+            border-radius: 12px;
+            width: 100%;
+            touch-action: none;
+            background: #fff;
+            display: block
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 8px
+        }
+
+        .btn-checkin {
+            padding: 16px;
+            background: #22c55e;
+            color: #fff;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: 'Sarabun', sans-serif;
+            cursor: pointer;
+            transition: all .2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px
+        }
+
+        .btn-checkin:hover:not(:disabled) {
+            background: #16a34a
+        }
+
+        .btn-checkout {
+            padding: 16px;
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: 'Sarabun', sans-serif;
+            cursor: pointer;
+            transition: all .2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px
+        }
+
+        .btn-checkout:hover:not(:disabled) {
+            background: #dc2626
+        }
+
+        .btn-checkin:disabled,
+        .btn-checkout:disabled {
+            opacity: .5;
+            cursor: not-allowed
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px
+        }
+
+        .history-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #333
+        }
+
+        .search-box {
+            position: relative
+        }
+
+        .search-box input {
+            padding: 10px 16px 10px 40px;
+            width: 220px
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #aaa
+        }
+
+        .history-day {
+            background: #fff;
+            border-radius: 14px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05)
+        }
+
+        .history-day-header {
+            padding: 14px 20px;
+            font-weight: 700;
+            color: #333;
+            font-size: 15px;
+            border-bottom: 1px solid #f0f0f0
+        }
+
+        .history-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            gap: 12px;
+            border-bottom: 1px solid #f8f8f8;
+            flex-wrap: wrap
+        }
+
+        .badge-in {
+            background: #dcfce7;
+            color: #16a34a;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600
+        }
+
+        .badge-out {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600
+        }
+
+        .badge-late {
+            background: #fef3c7;
+            color: #d97706;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600
+        }
+
+        .history-time {
+            font-weight: 700;
+            color: #333
+        }
+
+        .history-loc {
+            color: #888;
+            font-size: 13px
+        }
+
+        .profile-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06)
+        }
+
+        .profile-section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 3px solid #f7931e
+        }
+
+        .info-row {
+            display: flex;
+            margin-bottom: 12px
+        }
+
+        .info-label {
+            color: #888;
+            font-size: 14px;
+            width: 160px
+        }
+
+        .info-value {
+            font-weight: 700;
+            color: #333;
+            font-size: 14px
+        }
+
+        .btn-update {
+            padding: 12px 24px;
+            background: #f7931e;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: 'Sarabun', sans-serif;
+            cursor: pointer
+        }
+
+        .shift-table {
+            width: 100%;
+            border-collapse: collapse
+        }
+
+        .shift-table th {
+            background: #f8f9fa;
+            padding: 10px 16px;
+            text-align: left;
+            font-size: 14px;
+            color: #666
+        }
+
+        .shift-table td {
+            padding: 12px 16px;
+            border-top: 1px solid #f0f0f0;
+            font-size: 14px
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px;
+            color: #bbb
+        }
+
+        .toast {
+            position: fixed;
+            top: 80px;
+            right: 24px;
+            padding: 14px 24px;
+            border-radius: 12px;
+            color: #fff;
+            font-weight: 600;
+            font-size: 14px;
+            z-index: 9999;
+            transform: translateX(120%);
+            transition: all .3s;
+            max-width: 320px
+        }
+
+        .toast.success {
+            background: #22c55e
+        }
+
+        .toast.error {
+            background: #ef4444
+        }
+
+        .toast.warning {
+            background: #f59e0b
+        }
+
+        .toast.show {
+            transform: translateX(0)
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, .7);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px
+        }
+
+        .loading-overlay.show {
+            display: flex
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f7931e;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin .7s linear infinite
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        .btn-spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            display: none;
+        }
+
+        input[type=file] {
+            display: none
+        }
+
+        /* === Face Scanner === */
+        .face-scanner-wrap {
+            position: relative;
+            background: #0f172a;
+            border-radius: 14px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .face-status-msg {
+            color: #94a3b8;
+            font-size: 14px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+        }
+
+        #faceVideo {
+            width: 100%;
+            border-radius: 12px;
+            display: block;
+            transform: scaleX(-1);
+            /* mirror effect */
+        }
+
+        #faceOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+            pointer-events: none;
+        }
+
+        .face-box {
+            position: absolute;
+            border: 3px solid #22c55e;
+            border-radius: 6px;
+            box-shadow: 0 0 12px #22c55e88;
+            transition: all 0.15s;
+            pointer-events: none;
+        }
+
+        .face-detected-badge {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #22c55e;
+            color: #fff;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: .6;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div style="color:#10b981;font-weight:700">กำลังโหลด...</div>
+    </div>
+    <nav class="topnav">
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showPage('clockin')">📋 ลงเวลา</button>
+            <button class="nav-tab" onclick="showPage('history')">📅 ประวัติ</button>
+            <button class="nav-tab" onclick="showPage('profile')">👤 โปรไฟล์</button>
+        </div>
+        <button class="btn-logout" onclick="logout()">ออกจากระบบ</button>
+    </nav>
+
+    <!-- CLOCK-IN PAGE -->
+    <div class="page active" id="page-clockin">
+        <div class="clock-card">
+            <div class="clock-greeting" id="greeting">สวัสดี...</div>
+            <div class="clock-time" id="liveClock">--:--:--</div>
+            <div class="clock-date" id="liveDate">--</div>
+            <div id="todayStatus" class="status-badge" style="opacity:0.8">🔄 กำลังตรวจสอบข้อมูล...</div>
+        </div>
+        <div class="section-card">
+            <div class="section-title">📍 สถานที่ปฏิบัติงาน</div>
+            <select id="locationSelect">
+                <option value="">-- เลือกสถานที่ --</option>
+                <option value="Work From Home">🏠 Work From Home</option>
+                <option value="ออฟฟิศ (ภายใน)">🏢 ออฟฟิศ (ภายใน)</option>
+                <option value="นอกสถานที่">📍 นอกสถานที่</option>
+            </select>
+        </div>
+        <div class="section-card">
+            <div class="section-title">📍 พิกัดของคุณ</div>
+            <div class="map-area" id="mapArea">
+                <div>🗺️</div>
+                <div id="gpsStatus" style="color:#5c6bc0;font-weight:600;font-size:13px">กำลังค้นหาตำแหน่ง...</div>
+                <div id="gpsCoords" style="font-size:12px;color:#888"></div>
+            </div>
+        </div>
+        <!-- Face Scanner Section -->
+        <div class="section-card">
+            <div class="section-title">👤 สแกนใบหน้ายืนยันตัวตน</div>
+            <div class="face-scanner-wrap">
+                <div id="faceStatus" class="face-status-msg">&#128247; เปิดกล้อง...</div>
+                <div class="video-container" id="videoContainer" style="display:none">
+                    <video id="faceVideo" autoplay muted playsinline></video>
+                    <canvas id="faceOverlay"></canvas>
+                    <div id="faceBox" class="face-box" style="display:none"></div>
+                    <div id="faceDetectedBadge" class="face-detected-badge" style="display:none">✅ พบใบหน้า</div>
+                </div>
+                <div id="faceCaptured" style="display:none">
+                    <img id="capturedImg" style="width:100%;border-radius:12px;border:3px solid #22c55e">
+                    <div style="text-align:center;margin-top:8px;color:#22c55e;font-weight:700">✅ สแกนใบหน้าสำเร็จ</div>
+                    <button class="btn-camera" onclick="retakeFace()"
+                        style="margin-top:8px;width:100%;background:#6366f1">🔄 สแกนใหม่</button>
+                </div>
+            </div>
+            <button class="btn-camera" id="captureBtn" onclick="captureFace()" style="display:none"><span
+                    id="capStatus">📸 ถ่ายภาพยืนยันใบหน้า</span></button>
+            <div class="sig-header">
+                <span style="font-size:15px;font-weight:600;color:#333">✍️ ลายเซ็น</span>
+                <button class="btn-clear" onclick="clearSig()">🗑️ ล้าง</button>
+            </div>
+            <canvas id="sigCanvas" width="600" height="140"></canvas>
+        </div>
+        <div class="btn-group" id="actionBtnGroup" style="display:none; transition: all 0.3s">
+            <button class="btn-checkin" id="btnIn" onclick="doCheckIn()">
+                <div class="btn-spinner" id="spinIn"></div>
+                <span id="txtIn">🟢 เข้างาน</span>
+            </button>
+            <button class="btn-checkout" id="btnOut" onclick="doCheckOut()">
+                <div class="btn-spinner" id="spinOut"></div>
+                <span id="txtOut">🔴 ออกงาน</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- HISTORY PAGE -->
+    <div class="page" id="page-history">
+        <div class="history-header">
+            <div class="history-title">📅 ประวัติการลงเวลาของคุณ</div>
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" placeholder="ค้นหาสถานที่..." id="searchHistory" oninput="filterHistory()">
+            </div>
+        </div>
+        <div id="historyCount" style="color:#888;font-size:13px;margin-bottom:12px"></div>
+        <div id="historyList"></div>
+    </div>
+
+    <!-- PROFILE PAGE -->
+    <div class="page" id="page-profile">
+        <div class="profile-card">
+            <div class="profile-section-title">👤 ข้อมูลของฉัน</div>
+            <div class="info-row"><span class="info-label">ชื่อ-สกุล</span><span class="info-value" id="pName">-</span>
+            </div>
+            <div class="info-row"><span class="info-label">เบอร์โทรศัพท์ (ID)</span><span class="info-value"
+                    id="pPhone">-</span></div>
+            <div class="info-row"><span class="info-label">กลุ่ม/ฝ่าย</span><span class="info-value" id="pDept">-</span>
+            </div>
+            <div class="info-row"><span class="info-label">ตำแหน่ง</span><span class="info-value" id="pPos">-</span>
+            </div>
+        </div>
+    </div>
+    </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let API_URL = '', currentUser = null;
+        let gpsLat = null, gpsLng = null, photoDataUrl = null;
+        let sigCanvas, sigCtx, isDrawing = false;
+        let allMyLogs = [];
+        let todayCheckin = null, todayCheckout = null;
+        let isCurrentlyIn = false;
+
+        function init() {
+            API_URL = sessionStorage.getItem('wfh_api') || '';
+            const stored = sessionStorage.getItem('wfh_current');
+            if (!stored || !API_URL) { window.location.href = 'index.html'; return; }
+            currentUser = JSON.parse(stored);
+            if (String(currentUser.role).toLowerCase() === 'admin' || currentUser.id === 'admin') { window.location.href = 'admin.html'; return; }
+            startClock(); getGPS(); initSig();
+            loadProfile();
+            loadTodayLogs();
+            startFaceScanner();
+        }
+
+        function startClock() {
+            function update() {
+                const now = new Date();
+                document.getElementById('liveClock').textContent =
+                    [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+                document.getElementById('liveDate').textContent = formatDateThai(now);
+                const hr = now.getHours();
+                const gr = hr < 12 ? 'สวัสดีตอนเช้า' : hr < 17 ? 'สวัสดียามบ่าย' : 'สวัสดีตอนเย็น';
+                document.getElementById('greeting').textContent = `☀️ ${gr}คุณ ${currentUser.name}`;
+            }
+            update(); setInterval(update, 1000);
+        }
+
+        function getGPS() {
+            if (!navigator.geolocation) return;
+            navigator.geolocation.getCurrentPosition(p => {
+                gpsLat = p.coords.latitude; gpsLng = p.coords.longitude;
+                document.getElementById('gpsStatus').textContent = '📍 พบตำแหน่งของคุณ';
+                document.getElementById('gpsCoords').textContent = `${gpsLat.toFixed(5)}, ${gpsLng.toFixed(5)}`;
+                document.getElementById('mapArea').style.background = 'linear-gradient(135deg,#dbeafe,#bfdbfe)';
+            }, () => {
+                document.getElementById('gpsStatus').textContent = '⚠️ รับ GPS ไม่ได้';
+            });
+        }
+
+        function initSig() {
+            sigCanvas = document.getElementById('sigCanvas');
+            sigCtx = sigCanvas.getContext('2d');
+            sigCanvas.width = sigCanvas.offsetWidth || 600;
+            function getPos(e) {
+                const r = sigCanvas.getBoundingClientRect();
+                const t = e.touches ? e.touches[0] : e;
+                return { x: (t.clientX - r.left) * (sigCanvas.width / r.width), y: (t.clientY - r.top) * (sigCanvas.height / r.height) };
+            }
+            sigCanvas.addEventListener('mousedown', e => { isDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); });
+            sigCanvas.addEventListener('mousemove', e => { if (!isDrawing) return; const p = getPos(e); sigCtx.lineWidth = 2; sigCtx.strokeStyle = '#1a1a2e'; sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); });
+            sigCanvas.addEventListener('mouseup', () => isDrawing = false);
+            sigCanvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); }, { passive: false });
+            sigCanvas.addEventListener('touchmove', e => { e.preventDefault(); if (!isDrawing) return; const p = getPos(e); sigCtx.lineWidth = 2; sigCtx.strokeStyle = '#1a1a2e'; sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); }, { passive: false });
+            sigCanvas.addEventListener('touchend', () => isDrawing = false);
+        }
+
+        function clearSig() { sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height); }
+
+        // ====== Face Recognition System ======
+        let faceStream = null;
+        let faceDetectionLoop = null;
+        let faceDetected = false;
+        let currentDetection = null;  // latest full detection object
+        const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+        const FACE_THRESHOLD = 0.5;   // euclidean distance threshold
+
+        async function loadFaceModels() {
+            const statusEl = document.getElementById('faceStatus');
+            statusEl.textContent = '🤖 กำลังโหลด AI Model...';
+            await faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL);
+            await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODELS_URL);
+            await faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URL);
+            statusEl.textContent = '📷 กำลังเปิดกล้อง...';
+        }
+
+        async function startFaceScanner() {
+            const statusEl = document.getElementById('faceStatus');
+            const container = document.getElementById('videoContainer');
+            const video = document.getElementById('faceVideo');
+            const captureBtn = document.getElementById('captureBtn');
+
+            statusEl.style.display = 'block';
+            statusEl.textContent = '🤖 กำลังโหลด AI Model...';
+            try {
+                await loadFaceModels();
+                faceStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 360 } });
+                video.srcObject = faceStream;
+                await new Promise(r => video.onloadedmetadata = r);
+
+                const overlay = document.getElementById('faceOverlay');
+                overlay.width = video.videoWidth;
+                overlay.height = video.videoHeight;
+
+                statusEl.style.display = 'none';
+                container.style.display = 'block';
+                captureBtn.style.display = 'block';
+
+                // Show registration hint if no face stored
+                if (!currentUser.faceDescriptor) {
+                    document.getElementById('capStatus').textContent = '🆕 ครั้งแรก: มองกล้องแล้วกดบันทึกใบหน้า';
+                }
+
+                runFaceDetectionLoop();
+            } catch (e) {
+                statusEl.style.display = 'block';
+                statusEl.textContent = '❌ เปิดกล้องไม่ได้: ' + e.message;
+            }
+        }
+
+        function runFaceDetectionLoop() {
+            const video = document.getElementById('faceVideo');
+            const overlay = document.getElementById('faceOverlay');
+            const ctx = overlay.getContext('2d');
+            const box = document.getElementById('faceBox');
+            const badge = document.getElementById('faceDetectedBadge');
+
+            faceDetectionLoop = setInterval(async () => {
+                if (video.readyState < 2) return;
+                const detection = await faceapi
+                    .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }))
+                    .withFaceLandmarks(true)
+                    .withFaceDescriptor();
+
+                ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+                if (detection) {
+                    faceDetected = true;
+                    currentDetection = detection;
+                    const scaleX = overlay.width / video.videoWidth;
+                    const scaleY = overlay.height / video.videoHeight;
+
+                    // Draw landmarks
+                    ctx.fillStyle = '#22c55e';
+                    detection.landmarks.positions.forEach(pt => {
+                        ctx.beginPath();
+                        ctx.arc(pt.x * scaleX, pt.y * scaleY, 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+
+                    // Bounding box (mirror-adjusted)
+                    const det = detection.detection.box;
+                    const vRect = video.getBoundingClientRect();
+                    const wScale = vRect.width / video.videoWidth;
+                    const hScale = vRect.height / video.videoHeight;
+                    box.style.display = 'block';
+                    box.style.left = (vRect.width - (det.x + det.width) * wScale) + 'px';
+                    box.style.top = (det.y * hScale) + 'px';
+                    box.style.width = (det.width * wScale) + 'px';
+                    box.style.height = (det.height * hScale) + 'px';
+                    badge.style.display = 'block';
+                    badge.textContent = '✅ พบใบหน้า';
+                    badge.style.background = '#22c55e';
+                } else {
+                    faceDetected = false;
+                    currentDetection = null;
+                    box.style.display = 'none';
+                    badge.style.display = 'none';
+                    ctx.clearRect(0, 0, overlay.width, overlay.height);
+                }
+            }, 200);
+        }
+
+        async function captureFace() {
+            if (!faceDetected || !currentDetection) {
+                showToast('⚠️ ยังไม่พบใบหน้า กรุณามองตรงมาที่กล้อง', 'warning');
+                return;
+            }
+
+            const capStatus = document.getElementById('capStatus');
+            capStatus.textContent = '⏳ กำลังประมวลผล...';
+
+            const descriptor = currentDetection.descriptor; // Float32Array 128 values
+
+            // ===== กรณีที่ 1: ยังไม่เคยลงทะเบียนใบหน้า =====
+            if (!currentUser.faceDescriptor) {
+                const confirm_ = confirm('📸 นี่คือการลงทะเบียนใบหน้าครั้งแรก\nระบบจะบันทึกใบหน้าของคุณไว้สำหรับยืนยันตัวตน\nยืนยันหรือไม่?');
+                if (!confirm_) { capStatus.textContent = '🆕 ครั้งแรก: มองกล้องแล้วกดบันทึกใบหน้า'; return; }
+
+                // บันทึก descriptor ลง Sheets
+                const descArr = Array.from(descriptor);
+                await api('', 'POST', {
+                    action: 'saveUser',
+                    id: currentUser.id, phone: currentUser.phone, name: currentUser.name,
+                    password: currentUser.password, role: currentUser.role,
+                    salary: currentUser.salary, shift: currentUser.shift || 'standard',
+                    active: true, faceDescriptor: JSON.stringify(descArr),
+                    department: currentUser.department, position: currentUser.position
+                });
+                currentUser.faceDescriptor = JSON.stringify(descArr);
+                sessionStorage.setItem('wfh_current', JSON.stringify(currentUser));
+                showToast('✅ บันทึกใบหน้าเรียบร้อยแล้ว!', 'success');
+
+                // ===== กรณีที่ 2: มี descriptor แล้ว – ต้องยืนยัน =====
+            } else {
+                const storedArr = JSON.parse(currentUser.faceDescriptor);
+                const storedDesc = new Float32Array(storedArr);
+                const distance = faceapi.euclideanDistance(descriptor, storedDesc);
+
+                if (distance > FACE_THRESHOLD) {
+                    showToast(`❌ ใบหน้าไม่ตรงกัน (ระยะ: ${distance.toFixed(2)}) กรุณาลองใหม่`, 'error');
+                    capStatus.textContent = '📸 ถ่ายภาพยืนยันใบหน้า';
+                    return;
+                }
+                showToast(`✅ ยืนยันตัวตนสำเร็จ (ระยะ: ${distance.toFixed(2)})`, 'success');
+            }
+
+            // ===== Capture photo =====
+            const video = document.getElementById('faceVideo');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+            photoDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+            // Stop camera
+            clearInterval(faceDetectionLoop);
+            if (faceStream) faceStream.getTracks().forEach(t => t.stop());
+
+            document.getElementById('videoContainer').style.display = 'none';
+            document.getElementById('captureBtn').style.display = 'none';
+            document.getElementById('capturedImg').src = photoDataUrl;
+            document.getElementById('faceCaptured').style.display = 'block';
+        }
+
+        function retakeFace() {
+            photoDataUrl = null;
+            faceDetected = false;
+            currentDetection = null;
+            document.getElementById('faceCaptured').style.display = 'none';
+            document.getElementById('faceStatus').style.display = 'block';
+            startFaceScanner();
+        }
+
+
+
+
+        async function loadTodayLogs() {
+            const today = new Date().toISOString().slice(0, 10);
+            try {
+                const resp = await api(`?action=getLogs&userId=${currentUser.id}&dateFrom=${today}&dateTo=${today}`);
+                // หาค่าล่าสุดจริงๆ ของวัน
+                const logs = resp.data || [];
+                todayCheckin = logs.filter(l => l.type === 'checkin').pop() || null;
+                todayCheckout = logs.filter(l => l.type === 'checkout').pop() || null;
+
+                // ตรวจสอบสถานะปัจจุบันจาก Log ตัวสุดท้าย
+                const lastLog = logs[logs.length - 1];
+                isCurrentlyIn = lastLog && lastLog.type === 'checkin';
+
+                updateTodayStatus();
+            } catch (e) { }
+        }
+
+        function updateTodayStatus() {
+            const el = document.getElementById('todayStatus');
+            const btnIn = document.getElementById('btnIn');
+            const btnOut = document.getElementById('btnOut');
+            const txtIn = document.getElementById('txtIn');
+            const txtOut = document.getElementById('txtOut');
+            document.getElementById('actionBtnGroup').style.display = 'flex';
+            el.style.opacity = '1';
+
+            if (isCurrentlyIn) {
+                // กำลังทำงานอยู่ -> ให้กดออกได้
+                el.textContent = `🟡 เข้างานแล้ว (${formatTime(todayCheckin.time)} น.)`;
+                btnIn.style.display = 'none';
+                btnOut.style.display = 'flex';
+                btnOut.style.width = '100%';
+                if (txtOut) txtOut.textContent = '🔴 ออกงาน';
+            } else if (todayCheckout) {
+                // ออกงานไปแล้ว -> ให้กดเข้าใหม่ได้
+                el.textContent = `🔴 ออกงานแล้วล่าสุด (${formatTime(todayCheckout.time)} น.)`;
+                btnIn.style.display = 'flex';
+                btnIn.style.width = '100%';
+                if (txtIn) txtIn.textContent = '🟢 เข้างานใหม่ (เริ่มกะใหม่)';
+                btnOut.style.display = 'none';
+            } else {
+                // ยังไม่ได้เริ่มอะไรเลย
+                el.textContent = '🟢 ยังไม่ได้ลงเวลา';
+                btnIn.style.display = 'flex';
+                btnIn.style.width = '100%';
+                if (txtIn) txtIn.textContent = '🟢 เข้างาน';
+                btnOut.style.display = 'none';
+            }
+        }
+
+        async function doCheckIn() {
+            const loc = document.getElementById('locationSelect').value;
+            if (!loc) { showToast('กรุณาเลือกสถานที่ก่อน', 'warning'); return; }
+            // อนุญาตให้เข้าใหม่ได้ถ้า ออกงานไปแล้ว (TodayCheckout มีค่า)
+            if (todayCheckin && !todayCheckout) { showToast('คุณเข้างานไปแล้ว และยังไม่ได้ออกงาน', 'warning'); return; }
+            setBtnLoading('btnIn', 'spinIn', 'txtIn', true);
+            const now = new Date();
+            const today = now.toISOString().slice(0, 10);
+            const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            // Calculate late
+            let lateMin = 0;
+            try {
+                const settResp = await api('?action=getSettings');
+                const checkInTime = settResp.data.checkInTime || '08:30';
+                const [h, m] = checkInTime.split(':').map(Number);
+                const expected = new Date(now); expected.setHours(h, m, 0, 0);
+                lateMin = Math.max(0, Math.round((now - expected) / 60000));
+            } catch (e) { }
+
+
+            try {
+                const sig = sigCanvas.toDataURL('image/png', 0.5);
+                await api('', 'POST', {
+                    action: 'addLog', userId: currentUser.id, userName: currentUser.name,
+                    date: today, time, type: 'checkin', location: loc,
+                    lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: sig, lateMin
+                });
+                todayCheckin = { type: 'checkin', time };
+                isCurrentlyIn = true;
+                updateTodayStatus();
+                showToast(`✅ เข้างานสำเร็จ${lateMin > 0 ? ` (สาย ${lateMin} นาที)` : ''}`, 'success');
+            } catch (e) {
+                showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
+            } finally { setBtnLoading('btnIn', 'spinIn', 'txtIn', false, '🟢 เข้างาน'); }
+        }
+
+        async function doCheckOut() {
+            const loc = document.getElementById('locationSelect').value;
+            if (!loc) { showToast('กรุณาเลือกสถานที่ก่อน', 'warning'); return; }
+            if (!isCurrentlyIn) { showToast('คุณยังไม่ได้กดเข้างาน (ไม่สามารถออกงานได้)', 'error'); return; }
+            const now = new Date();
+            const today = now.toISOString().slice(0, 10);
+            const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            setBtnLoading('btnOut', 'spinOut', 'txtOut', true);
+            try {
+                const sig = sigCanvas.toDataURL('image/png', 0.5);
+                await api('', 'POST', {
+                    action: 'addLog', userId: currentUser.id, userName: currentUser.name,
+                    date: today, time, type: 'checkout', location: loc,
+                    lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: sig
+                });
+                todayCheckout = { type: 'checkout', time };
+                isCurrentlyIn = false;
+                updateTodayStatus();
+                showToast('✅ ออกงานสำเร็จ', 'success');
+            } catch (e) {
+                showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
+            } finally { setBtnLoading('btnOut', 'spinOut', 'txtOut', false, '🔴 ออกงาน'); }
+        }
+
+        async function renderHistory() {
+            showLoading(true);
+            try {
+                const resp = await api(`?action=getLogs&userId=${currentUser.id}`);
+                allMyLogs = resp.data || [];
+                filterHistory();
+            } catch (e) {
+                document.getElementById('historyList').innerHTML = '<div class="empty-state">❌ โหลดข้อมูลไม่ได้</div>';
+            } finally { showLoading(false); }
+        }
+
+        function filterHistory() {
+            const q = (document.getElementById('searchHistory').value || '').toLowerCase();
+            const filtered = allMyLogs.filter(l => !q || (l.location || '').toLowerCase().includes(q));
+            const byDate = {};
+            filtered.forEach(l => { if (!byDate[l.date]) byDate[l.date] = []; byDate[l.date].push(l); });
+            const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+            document.getElementById('historyCount').textContent = `พบข้อมูล ${filtered.length} รายการ`;
+            const el = document.getElementById('historyList');
+            if (!dates.length) { el.innerHTML = '<div class="empty-state"><div style="font-size:48px">📭</div><div>ไม่มีข้อมูล</div></div>'; return; }
+            el.innerHTML = dates.map(date => {
+                const rows = byDate[date].map(l =>
+                    `<div class="history-row">
+        <span class="${l.type === 'checkin' ? 'badge-in' : 'badge-out'}">${l.type === 'checkin' ? 'เข้างาน' : 'ออกงาน'}</span>
+        <span class="history-time">${formatTime(l.time)} น.</span>
+        <span class="history-loc">📍 ${l.location || '-'}</span>
+        ${l.lateMin > 0 ? `<span class="badge-late">สาย ${l.lateMin} นาที</span>` : ''}
+      </div>`
+                ).join('');
+                return `<div class="history-day"><div class="history-day-header">${formatDateThaiStr(date)}</div>${rows}</div>`;
+            }).join('');
+        }
+
+        async function loadProfile() {
+            document.getElementById('pName').textContent = currentUser.name;
+            document.getElementById('pPhone').textContent = currentUser.phone;
+            document.getElementById('pDept').textContent = currentUser.department || '-';
+            document.getElementById('pPos').textContent = currentUser.position || '-';
+        }
+
+
+
+        async function api(path = '', method = 'GET', body = null) {
+            const url = API_URL + path;
+            const opts = { method };
+            if (body) { opts.method = 'POST'; opts.body = JSON.stringify(body); }
+            const resp = await fetch(url, opts);
+            const json = await resp.json();
+            if (!json.success) throw new Error(json.error || 'API Error');
+            return json;
+        }
+
+        function showPage(name) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('page-' + name).classList.add('active');
+            ['clockin', 'history', 'profile'].forEach((n, i) => {
+                if (n === name) document.querySelectorAll('.nav-tab')[i].classList.add('active');
+            });
+            if (name === 'history') renderHistory();
+            if (name === 'profile') loadProfile();
+        }
+
+        function logout() { sessionStorage.clear(); window.location.href = 'index.html'; }
+
+        function showToast(msg, type = 'success') {
+            const t = document.getElementById('toast');
+            t.textContent = msg; t.className = 'toast ' + type + ' show';
+            setTimeout(() => t.className = 'toast', 3500);
+        }
+
+        function showLoading(on) {
+            document.getElementById('loadingOverlay').className = 'loading-overlay' + (on ? ' show' : '');
+        }
+
+        function setLoading(on) { showLoading(on); }
+
+        function setBtnLoading(btnId, spinId, txtId, on, textOff = '') {
+            const btn = document.getElementById(btnId);
+            const spin = document.getElementById(spinId);
+            const txt = document.getElementById(txtId);
+            if (btn) btn.disabled = on;
+            if (spin) spin.style.display = on ? 'block' : 'none';
+            if (txt) txt.textContent = on ? 'กำลังบันทึก...' : textOff;
+        }
+
+        function formatDateThai(d) {
+            const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+            const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+            return `วัน${days[d.getDay()]}ที่ ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear() + 543}`;
+        }
+
+        function formatDateThaiStr(dateStr) {
+            if (!dateStr || dateStr === '-') return '-';
+            let d;
+            if (String(dateStr).includes('T')) {
+                d = new Date(dateStr);
+            } else {
+                d = new Date(dateStr.includes('/') ? dateStr.split('/').reverse().join('-') : dateStr + 'T12:00:00');
+            }
+            if (isNaN(d.getTime())) return dateStr;
+            const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+            const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+            return `วัน${days[d.getDay()]}ที่ ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear() + (d.getFullYear() < 2500 ? 543 : 0)}`;
+        }
+
+        function formatTime(t) {
+            if (!t || t === '-') return '-';
+            if (String(t).includes('T')) return String(t).split('T')[1].substring(0, 5);
+            return String(t).substring(0, 5);
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
