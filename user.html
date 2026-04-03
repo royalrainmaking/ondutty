@@ -630,6 +630,51 @@
             vertical-align: middle;
             margin-top: -3px;
         }
+
+        /* Face Frame Overlay */
+        .face-frame-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        .face-frame-guide {
+            width: 200px;
+            height: 260px;
+            border: 4px solid rgba(255, 255, 255, 0.7);
+            border-radius: 100px / 130px;
+            box-shadow: 0 0 0 1000px rgba(15, 23, 42, 0.5);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .face-frame-guide::before {
+            content: "วางใบหน้าในกรอบ";
+            position: absolute;
+            bottom: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.8);
+            color: white;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .face-frame-guide.detected {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 1000px rgba(34, 197, 94, 0.1), 0 0 0 1000px rgba(15, 23, 42, 0.4);
+        }
     </style>
 </head>
 
@@ -681,6 +726,11 @@
                     <canvas id="faceOverlay"></canvas>
                     <div id="faceBox" class="face-box" style="display:none"></div>
                     <div id="faceDetectedBadge" class="face-detected-badge" style="display:none">✅ พบใบหน้า</div>
+                    
+                    <!-- Face Frame Guide -->
+                    <div class="face-frame-container">
+                        <div id="faceGuide" class="face-frame-guide"></div>
+                    </div>
                 </div>
                 <div id="faceCaptured" style="display:none">
                     <img id="capturedImg" style="width:100%;border-radius:12px;border:3px solid #10b981">
@@ -910,6 +960,7 @@
                         isCapturing = true;
                         captureFace();
                     }
+                    document.getElementById('faceGuide').classList.add('detected');
                 } else {
                     faceDetected = false;
                     currentDetection = null;
@@ -917,6 +968,7 @@
                     box.style.display = 'none';
                     badge.style.display = 'none';
                     ctx.clearRect(0, 0, overlay.width, overlay.height);
+                    document.getElementById('faceGuide').classList.remove('detected');
                 }
             }, 200);
         }
