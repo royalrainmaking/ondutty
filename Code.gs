@@ -104,42 +104,62 @@ function getUsers() {
       if (val.startsWith("'")) val = val.substring(1);
       obj[h.trim()] = val;
     });
-    // Fallback in case Google Sheets headers are missing or misspelled
-    if (!obj.faceDescriptor) {
-      let f = String(row[8] || '');
-      if (f.startsWith("'")) f = f.substring(1);
-      obj.faceDescriptor = f;
-    }
-    if (!obj.department) {
-      let d = String(row[9] || '');
-      if (d.startsWith("'")) d = d.substring(1);
-      obj.department = d;
-    }
-    if (!obj.position) {
-      let p = String(row[10] || '');
-      if (p.startsWith("'")) p = p.substring(1);
-      obj.position = p;
-    }
+    // Fallback and formatting
+    if (!obj.faceDescriptor) obj.faceDescriptor = String(row[8] || '').replace(/^'/, '');
+    if (!obj.department) obj.department = String(row[9] || '').replace(/^'/, '');
+    if (!obj.position) obj.position = String(row[10] || '').replace(/^'/, '');
     obj.active = String(obj.active).toLowerCase() === 'true';
     obj.salary = String(obj.salary || '0');
     return obj;
   });
-  return {success:true, data:users};
+
+  // Deduplicate: If same ID/Phone exists, keep the one with faceDescriptor
+  const uniqueUsers = [];
+  const map = new Map();
+  users.forEach(u => {
+    const key = u.id || u.phone;
+    if (!map.has(key)) {
+      map.set(key, u);
+      uniqueUsers.push(u);
+    } else {
+      // If we found a duplicate, but the new one has a face, replace it
+      const existing = map.get(key);
+      if (!existing.faceDescriptor && u.faceDescriptor) {
+        map.set(key, u);
+        const idx = uniqueUsers.indexOf(existing);
+        if (idx > -1) uniqueUsers[idx] = u;
+      }
+    }
+  });
+
+  return {success:true, data:uniqueUsers};
 }
 
 function saveUser(data) {
   const sheet = getSheet('users');
   const allData = sheet.getDataRange().getValues();
-  const rowIdx = allData.findIndex((row,i) => i > 0 && String(row[0]).replace(/^'/, '') === String(data.id));
+  const searchId = String(data.id || data.phone).replace(/^'/, '');
+  
+  // Find Row Index (ignoring leadsing single quotes)
+  const rowIdx = allData.findIndex((row,i) => {
+     if (i === 0) return false;
+     const rowId = String(row[0]).replace(/^'/, '');
+     const rowPhone = String(row[1]).replace(/^'/, '');
+     return rowId === searchId || rowPhone === searchId;
+  });
+
   const faceDesc = data.faceDescriptor ? String(data.faceDescriptor) : '';
   const dept = data.department ? String(data.department) : '';
   const pos = data.position ? String(data.position) : '';
+  
   const newRow = ["'"+(data.id || data.phone), "'"+data.phone, "'"+data.name, "'"+data.password,
                   "'"+data.role, "'"+data.salary, "'"+(data.shift || 'standard'), String(data.active !== false), "'"+faceDesc, "'"+dept, "'"+pos];
+  
   if (rowIdx > 0) {
-    // Update all user columns including faceDescriptor
+    // Update existing
     sheet.getRange(rowIdx+1, 1, 1, newRow.length).setValues([newRow]);
   } else {
+    // Check if phone exists (extra safety)
     const phoneExists = allData.slice(1).find(row => String(row[1]).replace(/^'/, '') === String(data.phone));
     if (phoneExists) return {success:false, error:'เบอร์โทรนี้มีอยู่แล้ว'};
     sheet.appendRow(newRow);
