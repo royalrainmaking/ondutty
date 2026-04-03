@@ -966,7 +966,8 @@
         }
 
         async function renderDashStats() {
-            const today = new Date().toISOString().slice(0, 10);
+            const now = new Date();
+            const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             try {
                 const r = await api(`?action=getLogs&dateFrom=${today}&dateTo=${today}`);
                 const todayLogs = (r.data || []).filter(l => l.type === 'checkin');
@@ -1084,8 +1085,10 @@
                         if (val > 0) {
                             lateHtml = `<div style="color:#dc2626;font-weight:800;font-size:13px;margin-top:4px">⚠️ สาย ${val} นาที</div>`;
                         } else if (val === 0) {
-                            lateHtml = `<div style="color:#16a34a;font-size:11px;margin-top:4px">✅ ตรงเวลา</div>`;
+                            lateHtml = `<div style="color:#16a34a;font-size:11px;margin-top:4px">✅ ตรงเวลา (ค่า: ${val})</div>`;
                         }
+                    } else {
+                        lateHtml = `<div style="color:#94a3b8;font-size:11px;margin-top:4px">❓ ไม่มีข้อมูลสาย</div>`;
                     }
                 }
 

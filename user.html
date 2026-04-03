@@ -1354,7 +1354,9 @@
                     date: today, time, type: 'checkin', location: loc,
                     lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: '',
                     lateMin: lateMin,
-                    late: lateMin // Send both just in case GAS uses different key
+                    late: lateMin,
+                    lateness: lateMin,
+                    entryLate: lateMin // Additional variation
                 };
 
                 await api('', 'POST', payload);
