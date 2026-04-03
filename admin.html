@@ -878,6 +878,7 @@
                     </select></div>
             </div>
             <input type="hidden" id="eEditId">
+            <input type="hidden" id="eFaceDesc">
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeEmpModal()">ยกเลิก</button>
                 <button class="btn-primary" onclick="saveEmployeeData()">💾 บันทึก</button>
@@ -1084,7 +1085,7 @@
             document.getElementById('empModal').classList.add('open');
             document.getElementById('empModalTitle').textContent = '➕ เพิ่มพนักงาน';
             document.getElementById('eEditId').value = '';
-            ['ePhone', 'eName', 'ePass', 'eSalary', 'eDept', 'ePos'].forEach(f => {
+            ['ePhone', 'eName', 'ePass', 'eSalary', 'eDept', 'ePos', 'eFaceDesc'].forEach(f => {
                 const el = document.getElementById(f);
                 if (el) el.value = '';
             });
@@ -1105,6 +1106,7 @@
             document.getElementById('ePos').value = u.position || 'ข้าราชการ';
             if (document.getElementById('eSalary')) document.getElementById('eSalary').value = u.salary;
             document.getElementById('eActive').value = String(u.active);
+            document.getElementById('eFaceDesc').value = u.faceDescriptor || '';
         }
 
         async function saveEmployeeData() {
@@ -1119,7 +1121,8 @@
                 salary: (document.getElementById('eSalary') ? document.getElementById('eSalary').value.trim() : '0') || '0',
                 active: document.getElementById('eActive').value === 'true', shift: 'standard',
                 department: document.getElementById('eDept').value,
-                position: document.getElementById('ePos').value
+                position: document.getElementById('ePos').value,
+                faceDescriptor: document.getElementById('eFaceDesc').value
             };
             showLoading(true);
             try {

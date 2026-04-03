@@ -104,7 +104,12 @@ function getUsers() {
       if (val.startsWith("'")) val = val.substring(1);
       obj[h] = val;
     });
-    // Fallback in case Google Sheets headers are missing
+    // Fallback in case Google Sheets headers are missing or misspelled
+    if (!obj.faceDescriptor) {
+      let f = String(row[8] || '');
+      if (f.startsWith("'")) f = f.substring(1);
+      obj.faceDescriptor = f;
+    }
     if (!obj.department) {
       let d = String(row[9] || '');
       if (d.startsWith("'")) d = d.substring(1);
@@ -130,7 +135,7 @@ function saveUser(data) {
   const dept = data.department ? String(data.department) : '';
   const pos = data.position ? String(data.position) : '';
   const newRow = ["'"+(data.id || data.phone), "'"+data.phone, "'"+data.name, "'"+data.password,
-                  "'"+data.role, "'"+data.salary, "'"+(data.shift || 'standard'), String(data.active !== false), faceDesc, "'"+dept, "'"+pos];
+                  "'"+data.role, "'"+data.salary, "'"+(data.shift || 'standard'), String(data.active !== false), "'"+faceDesc, "'"+dept, "'"+pos];
   if (rowIdx > 0) {
     // Update all user columns including faceDescriptor
     sheet.getRange(rowIdx+1, 1, 1, newRow.length).setValues([newRow]);

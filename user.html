@@ -602,6 +602,22 @@
                 opacity: .6;
             }
         }
+
+        .step-num {
+            display: inline-flex;
+            width: 24px;
+            height: 24px;
+            background: #10b981;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 13px;
+            font-weight: 700;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            vertical-align: middle;
+            margin-top: -3px;
+        }
     </style>
 </head>
 
@@ -627,16 +643,19 @@
             <div class="clock-date" id="liveDate">--</div>
             <div id="todayStatus" class="status-badge" style="opacity:0.8">🔄 กำลังตรวจสอบข้อมูล...</div>
         </div>
-        <div class="section-card">
+        <div class="section-card" id="step1">
+            <div class="step-num"><span>1</span></div>
             <div class="section-title">📍 สถานที่ปฏิบัติงาน</div>
-            <select id="locationSelect">
+            <select id="locationSelect" onchange="validateSteps()">
                 <option value="">-- เลือกสถานที่ --</option>
                 <option value="Work From Home">🏠 Work From Home</option>
                 <option value="ออฟฟิศ (ภายใน)">🏢 ออฟฟิศ (ภายใน)</option>
                 <option value="นอกสถานที่">📍 นอกสถานที่</option>
             </select>
         </div>
-        <div class="section-card">
+
+        <div class="section-card" id="step2" style="display:none">
+            <div class="step-num"><span>2</span></div>
             <div class="section-title">📍 พิกัดของคุณ</div>
             <div class="map-area" id="mapArea">
                 <div>🗺️</div>
@@ -644,8 +663,10 @@
                 <div id="gpsCoords" style="font-size:12px;color:#888"></div>
             </div>
         </div>
+
         <!-- Face Scanner Section -->
-        <div class="section-card">
+        <div class="section-card" id="step3" style="display:none">
+            <div class="step-num"><span>3</span></div>
             <div class="section-title">👤 สแกนใบหน้ายืนยันตัวตน</div>
             <div class="face-scanner-wrap">
                 <div id="faceStatus" class="face-status-msg">&#128247; เปิดกล้อง...</div>
@@ -656,20 +677,25 @@
                     <div id="faceDetectedBadge" class="face-detected-badge" style="display:none">✅ พบใบหน้า</div>
                 </div>
                 <div id="faceCaptured" style="display:none">
-                    <img id="capturedImg" style="width:100%;border-radius:12px;border:3px solid #22c55e">
-                    <div style="text-align:center;margin-top:8px;color:#22c55e;font-weight:700">✅ สแกนใบหน้าสำเร็จ</div>
+                    <img id="capturedImg" style="width:100%;border-radius:12px;border:3px solid #10b981">
+                    <div style="text-align:center;margin-top:8px;color:#10b981;font-weight:700">✅ สแกนใบหน้าสำเร็จ</div>
                     <button class="btn-camera" onclick="retakeFace()"
                         style="margin-top:8px;width:100%;background:#6366f1">🔄 สแกนใหม่</button>
                 </div>
             </div>
             <button class="btn-camera" id="captureBtn" onclick="captureFace()" style="display:none"><span
                     id="capStatus">📸 ถ่ายภาพยืนยันใบหน้า</span></button>
+        </div>
+
+        <div class="section-card" id="step4" style="display:none">
+            <div class="step-num"><span>4</span></div>
             <div class="sig-header">
                 <span style="font-size:15px;font-weight:600;color:#333">✍️ ลายเซ็น</span>
                 <button class="btn-clear" onclick="clearSig()">🗑️ ล้าง</button>
             </div>
             <canvas id="sigCanvas" width="600" height="140"></canvas>
         </div>
+
         <div class="btn-group" id="actionBtnGroup" style="display:none; transition: all 0.3s">
             <button class="btn-checkin" id="btnIn" onclick="doCheckIn()">
                 <div class="btn-spinner" id="spinIn"></div>
@@ -754,6 +780,7 @@
                 document.getElementById('gpsStatus').textContent = '📍 พบตำแหน่งของคุณ';
                 document.getElementById('gpsCoords').textContent = `${gpsLat.toFixed(5)}, ${gpsLng.toFixed(5)}`;
                 document.getElementById('mapArea').style.background = 'linear-gradient(135deg,#dbeafe,#bfdbfe)';
+                validateSteps();
             }, () => {
                 document.getElementById('gpsStatus').textContent = '⚠️ รับ GPS ไม่ได้';
             });
@@ -770,13 +797,13 @@
             }
             sigCanvas.addEventListener('mousedown', e => { isDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); });
             sigCanvas.addEventListener('mousemove', e => { if (!isDrawing) return; const p = getPos(e); sigCtx.lineWidth = 2; sigCtx.strokeStyle = '#1a1a2e'; sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); });
-            sigCanvas.addEventListener('mouseup', () => isDrawing = false);
+            sigCanvas.addEventListener('mouseup', () => { isDrawing = false; validateSteps(); });
             sigCanvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); }, { passive: false });
             sigCanvas.addEventListener('touchmove', e => { e.preventDefault(); if (!isDrawing) return; const p = getPos(e); sigCtx.lineWidth = 2; sigCtx.strokeStyle = '#1a1a2e'; sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); }, { passive: false });
-            sigCanvas.addEventListener('touchend', () => isDrawing = false);
+            sigCanvas.addEventListener('touchend', () => { isDrawing = false; validateSteps(); });
         }
 
-        function clearSig() { sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height); }
+        function clearSig() { sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height); validateSteps(); }
 
         // ====== Face Recognition System ======
         let faceStream = null;
@@ -894,7 +921,8 @@
             const descriptor = currentDetection.descriptor; // Float32Array 128 values
 
             // ===== กรณีที่ 1: ยังไม่เคยลงทะเบียนใบหน้า =====
-            if (!currentUser.faceDescriptor) {
+            const isFirstTime = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null';
+            if (isFirstTime) {
                 const confirm_ = confirm('📸 นี่คือการลงทะเบียนใบหน้าครั้งแรก\nระบบจะบันทึกใบหน้าของคุณไว้สำหรับยืนยันตัวตน\nยืนยันหรือไม่?');
                 if (!confirm_) { capStatus.textContent = '🆕 ครั้งแรก: มองกล้องแล้วกดบันทึกใบหน้า'; return; }
 
@@ -911,6 +939,7 @@
                 currentUser.faceDescriptor = JSON.stringify(descArr);
                 sessionStorage.setItem('wfh_current', JSON.stringify(currentUser));
                 showToast('✅ บันทึกใบหน้าเรียบร้อยแล้ว!', 'success');
+                validateSteps();
 
                 // ===== กรณีที่ 2: มี descriptor แล้ว – ต้องยืนยัน =====
             } else {
@@ -924,6 +953,7 @@
                     return;
                 }
                 showToast(`✅ ยืนยันตัวตนสำเร็จ (ระยะ: ${distance.toFixed(2)})`, 'success');
+                validateSteps();
             }
 
             // ===== Capture photo =====
@@ -944,6 +974,7 @@
             document.getElementById('captureBtn').style.display = 'none';
             document.getElementById('capturedImg').src = photoDataUrl;
             document.getElementById('faceCaptured').style.display = 'block';
+            validateSteps();
         }
 
         function retakeFace() {
@@ -953,6 +984,7 @@
             document.getElementById('faceCaptured').style.display = 'none';
             document.getElementById('faceStatus').style.display = 'block';
             startFaceScanner();
+            validateSteps();
         }
 
 
@@ -1038,6 +1070,8 @@
                 todayCheckin = { type: 'checkin', time };
                 isCurrentlyIn = true;
                 updateTodayStatus();
+                alert('✅ ลงเวลาเข้างานสำเร็จ!');
+                logout();
                 showToast(`✅ เข้างานสำเร็จ${lateMin > 0 ? ` (สาย ${lateMin} นาที)` : ''}`, 'success');
             } catch (e) {
                 showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
@@ -1057,11 +1091,13 @@
                 await api('', 'POST', {
                     action: 'addLog', userId: currentUser.id, userName: currentUser.name,
                     date: today, time, type: 'checkout', location: loc,
-                    lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: sig
+                    lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: sig, lateMin: 0
                 });
                 todayCheckout = { type: 'checkout', time };
                 isCurrentlyIn = false;
                 updateTodayStatus();
+                alert('✅ ลงเวลาออกงานสำเร็จ!');
+                logout();
                 showToast('✅ ออกงานสำเร็จ', 'success');
             } catch (e) {
                 showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
@@ -1129,6 +1165,49 @@
             });
             if (name === 'history') renderHistory();
             if (name === 'profile') loadProfile();
+        }
+
+        function validateSteps() {
+            const loc = document.getElementById('locationSelect').value;
+            const hasGPS = gpsLat !== null && gpsLng !== null;
+            const hasFace = !!photoDataUrl;
+            const sigBlank = isCanvasBlank(sigCanvas);
+
+            // Step 1 -> Show Step 2 (GPS)
+            if (loc) {
+                document.getElementById('step2').style.display = 'block';
+            } else {
+                document.getElementById('step2').style.display = 'none';
+            }
+
+            // Step 2 -> Show Step 3 (Face Scan)
+            if (loc && hasGPS) {
+                document.getElementById('step3').style.display = 'block';
+            } else {
+                document.getElementById('step3').style.display = 'none';
+            }
+
+            // Step 3 -> Show Step 4 (Signature)
+            if (loc && hasGPS && hasFace) {
+                document.getElementById('step4').style.display = 'block';
+            } else {
+                document.getElementById('step4').style.display = 'none';
+            }
+
+            // Step 4 -> Show Buttons
+            if (loc && hasGPS && hasFace && !sigBlank) {
+                document.getElementById('actionBtnGroup').style.display = 'flex';
+            } else {
+                document.getElementById('actionBtnGroup').style.display = 'none';
+            }
+        }
+
+        function isCanvasBlank(canvas) {
+            const context = canvas.getContext('2d');
+            const pixelBuffer = new Uint32Array(
+                context.getImageData(0, 0, canvas.width, canvas.height).data.buffer
+            );
+            return !pixelBuffer.some(color => color !== 0);
         }
 
         function logout() { sessionStorage.clear(); window.location.href = 'index.html'; }
