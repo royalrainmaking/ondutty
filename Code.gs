@@ -93,7 +93,7 @@ function doPost(e) {
 // ---- USERS ----
 function getUsers() {
   const sheet = getSheet('users');
-  const data = sheet.getDataRange().getDisplayValues();
+  const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return {success:true, data:[]};
   const headers = data[0];
   const users = data.slice(1).map(row => {
@@ -102,7 +102,7 @@ function getUsers() {
       if (!h) return; // ignore empty headers
       let val = String(row[i] || '');
       if (val.startsWith("'")) val = val.substring(1);
-      obj[h] = val;
+      obj[h.trim()] = val;
     });
     // Fallback in case Google Sheets headers are missing or misspelled
     if (!obj.faceDescriptor) {

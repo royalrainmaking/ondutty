@@ -808,8 +808,9 @@
         // ====== Face Recognition System ======
         let faceStream = null;
         let faceDetectionLoop = null;
-        let faceDetected = false;
         let currentDetection = null;  // latest full detection object
+        let detectionCount = 0;       // For auto-capture
+        let isCapturing = false;      // guard
         const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
         const FACE_THRESHOLD = 0.5;   // euclidean distance threshold
 
@@ -864,7 +865,7 @@
             const badge = document.getElementById('faceDetectedBadge');
 
             faceDetectionLoop = setInterval(async () => {
-                if (video.readyState < 2) return;
+                if (video.readyState < 2 || isCapturing) return;
                 const detection = await faceapi
                     .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }))
                     .withFaceLandmarks(true)
@@ -875,18 +876,19 @@
                 if (detection) {
                     faceDetected = true;
                     currentDetection = detection;
+                    detectionCount++;
                     const scaleX = overlay.width / video.videoWidth;
                     const scaleY = overlay.height / video.videoHeight;
 
                     // Draw landmarks
-                    ctx.fillStyle = '#22c55e';
+                    ctx.fillStyle = '#10b981';
                     detection.landmarks.positions.forEach(pt => {
                         ctx.beginPath();
                         ctx.arc(pt.x * scaleX, pt.y * scaleY, 2, 0, Math.PI * 2);
                         ctx.fill();
                     });
 
-                    // Bounding box (mirror-adjusted)
+                    // Bounding box
                     const det = detection.detection.box;
                     const vRect = video.getBoundingClientRect();
                     const wScale = vRect.width / video.videoWidth;
@@ -896,12 +898,20 @@
                     box.style.top = (det.y * hScale) + 'px';
                     box.style.width = (det.width * wScale) + 'px';
                     box.style.height = (det.height * hScale) + 'px';
+
                     badge.style.display = 'block';
-                    badge.textContent = '✅ พบใบหน้า';
-                    badge.style.background = '#22c55e';
+                    badge.textContent = `✅ ตรวจสอบใบหน้า... (${Math.min(100, Math.round(detectionCount / 5 * 100))}%)`;
+                    badge.style.background = '#10b981';
+
+                    // Auto capture after ~1 second (5 frames/intervals)
+                    if (detectionCount >= 5) {
+                        isCapturing = true;
+                        captureFace();
+                    }
                 } else {
                     faceDetected = false;
                     currentDetection = null;
+                    detectionCount = 0;
                     box.style.display = 'none';
                     badge.style.display = 'none';
                     ctx.clearRect(0, 0, overlay.width, overlay.height);
@@ -981,6 +991,8 @@
             photoDataUrl = null;
             faceDetected = false;
             currentDetection = null;
+            detectionCount = 0;
+            isCapturing = false;
             document.getElementById('faceCaptured').style.display = 'none';
             document.getElementById('faceStatus').style.display = 'block';
             startFaceScanner();
