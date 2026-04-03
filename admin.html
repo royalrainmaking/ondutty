@@ -725,7 +725,7 @@
                     <button class="btn-export" onclick="exportCSV()">📊 Export CSV</button>
                 </div>
                 <div class="filter-row">
-                    <input type="text" placeholder="🔍 ค้นหา (ชื่อ, สถานที่)" id="logSearch" oninput="filterLogs()">
+                    <input type="text" placeholder="🔍 ค้นหาชื่อพนักงาน..." id="logSearch" oninput="filterLogs()">
                     <select id="logUserFilter" onchange="filterLogs()">
                         <option value="">พนักงานทั้งหมด</option>
                     </select>
@@ -742,7 +742,6 @@
                                 <th>พนักงาน</th>
                                 <th>เวลาเข้า-ออก</th>
                                 <th>สรุปเวลา</th>
-                                <th>สถานที่</th>
                                 <th>ภาพ/ลายเซ็น</th>
                                 <th>GPS</th>
                                 <th>จัดการ</th>
@@ -979,69 +978,89 @@
             const uf = document.getElementById('logUserFilter').value;
             const filtered = allLogs.filter(l => {
                 if (uf && String(l.userId) !== String(uf)) return false;
-                if (q && !(l.userName || '').toLowerCase().includes(q) && !(l.location || '').toLowerCase().includes(q)) return false;
+                if (q && !(l.userName || '').toLowerCase().includes(q)) return false;
                 return true;
             });
 
-            const grouped = {};
+            // Group by user and date
+            const groups = {};
             filtered.forEach(l => {
                 const key = l.userId + '_' + l.date;
-                if (!grouped[key]) grouped[key] = { userId: l.userId, userName: l.userName, date: l.date, ci: null, co: null, lateMin: 0 };
-                if (l.type === 'checkin' && (!grouped[key].ci || l.time < grouped[key].ci.time)) {
-                    grouped[key].ci = l;
-                    grouped[key].lateMin = l.lateMin || 0;
-                }
-                if (l.type === 'checkout' && (!grouped[key].co || l.time > grouped[key].co.time)) {
-                    grouped[key].co = l;
-                }
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(l);
             });
 
-            const sortedGroups = Object.values(grouped).sort((a, b) => b.date.localeCompare(a.date) || a.userId.localeCompare(b.userId));
+            const sessions = [];
+            Object.values(groups).forEach(dayLogs => {
+                dayLogs.sort((a, b) => a.time.localeCompare(b.time));
+                let current = null;
+                dayLogs.forEach(l => {
+                    if (l.type === 'checkin') {
+                        if (current) sessions.push(current);
+                        current = { ci: l, co: null, userId: l.userId, userName: l.userName, date: l.date };
+                    } else if (l.type === 'checkout') {
+                        if (current) {
+                            current.co = l;
+                            sessions.push(current);
+                            current = null;
+                        } else {
+                            sessions.push({ ci: null, co: l, userId: l.userId, userName: l.userName, date: l.date });
+                        }
+                    }
+                });
+                if (current) sessions.push(current);
+            });
 
-            document.getElementById('logsSubtitle').textContent = `พบ ${sortedGroups.length} วันการทำงาน (รายบุคคล)`;
+            const sorted = sessions.sort((a, b) => {
+                let cmp = b.date.localeCompare(a.date);
+                if (cmp !== 0) return cmp;
+                const getTime = (s) => (s.ci ? s.ci.time : s.co.time);
+                cmp = getTime(a).localeCompare(getTime(b));
+                if (cmp !== 0) return cmp;
+                return (a.userId || '').localeCompare(b.userId || '');
+            });
+
+            document.getElementById('logsSubtitle').textContent = `พบ ${sorted.length} รายการ (แยกเป็นรอบ)`;
             const tbody = document.getElementById('logsBody');
-            if (!sortedGroups.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty-state">ไม่พบข้อมูล</td></tr>'; return; }
+            if (!sorted.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-state">ไม่พบข้อมูล</td></tr>'; return; }
 
-            tbody.innerHTML = sortedGroups.map(g => {
-                const ci = g.ci;
-                const co = g.co;
-                const ciTime = ci ? formatTime(ci.time) : '-';
-                const coTime = co ? formatTime(co.time) : '-';
-                const lateMin = g.lateMin;
-                const location = (ci ? ci.location : (co ? co.location : '-')) || '-';
-                const mapObj = (ci && ci.lat) ? ci : ((co && co.lat) ? co : null);
+            tbody.innerHTML = sorted.map(s => {
+                const ci = s.ci;
+                const co = s.co;
+                const ciTime = ci ? formatTime(ci.time) : '<span style="color:#ccc">---</span>';
+                const coTime = co ? formatTime(co.time) : '<span style="color:#ccc">---</span>';
+                const lateMin = ci ? (ci.lateMin || 0) : 0;
 
                 const photoHtml = (ci && ci.photo) ? `<img src="${ci.photo}" class="thumb-img" onclick="previewImg(this.src)" title="ภาพเข้างาน">` : '';
                 const sigHtml = (ci && ci.signature) ? `<img src="${ci.signature}" class="thumb-sig" onclick="previewImg(this.src)" style="cursor:pointer" title="ลายเซ็นเข้างาน">` : '';
                 const photoOutHtml = (co && co.photo) ? `<img src="${co.photo}" class="thumb-img" onclick="previewImg(this.src)" title="ภาพออกงาน">` : '';
                 const mediaHtml = [photoHtml, sigHtml, photoOutHtml].filter(x => x).join(' ') || '-';
-                const mapHtml = mapObj ? `<a href="https://maps.google.com/?q=${mapObj.lat},${mapObj.lng}" target="_blank" style="color:#f7931e;font-size:12px">📍 แผนที่</a>` : '-';
+
+                const mapObj = ci || co;
+                const mapHtml = (mapObj && mapObj.lat) ? `<a href="https://maps.google.com/?q=${mapObj.lat},${mapObj.lng}" target="_blank" style="color:#f7931e;font-size:12px">📍 แผนที่</a>` : '-';
 
                 let hrsHtml = '<span style="color:#aaa">-</span>';
                 if (ci && co && ci.time && co.time) {
-                    const [h1, m1] = ci.time.split(':').map(Number);
-                    const [h2, m2] = co.time.split(':').map(Number);
-                    const diffMin = (h2 * 60 + m2) - (h1 * 60 + m1);
-                    if (diffMin > 0) {
-                        const hrs = Math.floor(diffMin / 60);
-                        const mins = diffMin % 60;
-                        hrsHtml = `<span style="color:#1d4ed8;font-weight:700">${hrs} ชม. ${mins} นาที</span>`;
+                    const t1 = ci.time.split(':').map(Number);
+                    const t2 = co.time.split(':').map(Number);
+                    const diff = (t2[0] * 60 + t2[1]) - (t1[0] * 60 + t1[1]);
+                    if (diff > 0) {
+                        hrsHtml = `<span style="color:#1d4ed8;font-weight:700">${Math.floor(diff / 60)} ชม. ${diff % 60} น.</span>`;
                     }
                 }
 
                 const deleteHtml = [];
-                if (ci) deleteHtml.push(`<button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick="deleteLogItem('${ci.id}')">🗑️ เข้างาน</button>`);
-                if (co) deleteHtml.push(`<button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick="deleteLogItem('${co.id}')">🗑️ ออกงาน</button>`);
+                if (ci) deleteHtml.push(`<button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick="deleteLogItem('${ci.id}')">🗑️ เข้า</button>`);
+                if (co) deleteHtml.push(`<button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick="deleteLogItem('${co.id}')">🗑️ ออก</button>`);
 
                 return `<tr>
-                    <td><strong>${formatDateShort(g.date)}</strong></td>
-                    <td>👤 ${g.userId}<br><small style="color:#555">${g.userName}</small></td>
+                    <td><strong>${formatDateShort(s.date)}</strong></td>
+                    <td>👤 ${s.userId}<br><small style="color:#555">${s.userName}</small></td>
                     <td>
-                        <div style="color:#16a34a;font-size:13px;font-weight:700">🟢 เข้า: ${ciTime} น.</div>
-                        <div style="color:#dc2626;font-size:13px;font-weight:700;margin-top:4px">🔴 ออก: ${coTime} น.</div>
+                        <div style="color:#16a34a;font-size:13px;font-weight:700">🟢 เข้า: ${ciTime}</div>
+                        <div style="color:#dc2626;font-size:13px;font-weight:700;margin-top:4px">🔴 ออก: ${coTime}</div>
                     </td>
                     <td>${hrsHtml}${lateMin > 0 ? `<br><span class="badge badge-late" style="margin-top:4px;display:inline-block">สาย ${lateMin} นาที</span>` : ''}</td>
-                    <td>📍 ${location}</td>
                     <td>${mediaHtml}</td>
                     <td>${mapHtml}</td>
                     <td style="display:flex;flex-direction:column;gap:6px">${deleteHtml.join('')}</td>
@@ -1277,8 +1296,8 @@
           <div><strong style="font-size:16px">${u.name}</strong><br><small style="color:#888">รายงาน ${month || 'ทั้งหมด'}</small></div>
           <div style="text-align:right"><div style="color:#16a34a;font-weight:700">มาทำงาน: ${worked} วัน</div><div style="color:#dc2626;font-weight:700">สายรวม: ${totalLate} นาที</div></div>
         </div>
-        <table class="data-table"><thead><tr><th>วันที่</th><th>ประเภท</th><th>เวลา</th><th>สถานที่</th></tr></thead>
-        <tbody>${[...ci, ...byUser[uid].co].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map(l => `<tr><td>${formatDateShort(l.date)}</td><td><span class="badge ${l.type === 'checkin' ? 'badge-in' : 'badge-out'}">${l.type === 'checkin' ? 'เข้างาน' : 'ออกงาน'}</span></td><td>${l.time} น.${l.lateMin > 0 ? ` <span class="badge badge-late">สาย ${l.lateMin} นาที</span>` : ''}</td><td>${l.location || '-'}</td></tr>`).join('')}</tbody></table>
+        <table class="data-table"><thead><tr><th>วันที่</th><th>ประเภท</th><th>เวลา</th></tr></thead>
+        <tbody>${[...ci, ...byUser[uid].co].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map(l => `<tr><td>${formatDateShort(l.date)}</td><td><span class="badge ${l.type === 'checkin' ? 'badge-in' : 'badge-out'}">${l.type === 'checkin' ? 'เข้างาน' : 'ออกงาน'}</span></td><td>${l.time} น.${l.lateMin > 0 ? ` <span class="badge badge-late">สาย ${l.lateMin} นาที</span>` : ''}</td></tr>`).join('')}</tbody></table>
       </div>`;
                 });
                 document.getElementById('reportContent').innerHTML = html || '<div class="empty-state">ไม่พบข้อมูล</div>';

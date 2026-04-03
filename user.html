@@ -653,7 +653,11 @@
             <div class="clock-greeting" id="greeting">สวัสดี...</div>
             <div class="clock-time" id="liveClock">--:--:--</div>
             <div class="clock-date" id="liveDate">--</div>
-            <div id="todayStatus" class="status-badge" style="opacity:0.8">🔄 กำลังตรวจสอบข้อมูล...</div>
+            <div id="todayStatus" class="status-badge" style="opacity:0.8; margin-bottom:12px">🔄 กำลังตรวจสอบข้อมูล...
+            </div>
+            <div id="todayLogsList"
+                style="text-align: left; background: rgba(255,255,255,0.1); border-radius: 12px; margin-top: 12px;">
+            </div>
         </div>
         <!-- Hidden Location (Fixed to WFH) -->
         <input type="hidden" id="locationSelect" value="Work From Home">
@@ -1005,7 +1009,6 @@
             document.getElementById('captureBtn').style.display = 'none';
             document.getElementById('capturedImg').src = photoDataUrl;
             document.getElementById('faceCaptured').style.display = 'block';
-            validateSteps();
         }
 
         function retakeFace() {
@@ -1035,16 +1038,16 @@
 
 
 
+        let currentTodayLogs = [];
         async function loadTodayLogs() {
             const today = new Date().toISOString().slice(0, 10);
             try {
                 const resp = await api(`?action=getLogs&userId=${currentUser.id}&dateFrom=${today}&dateTo=${today}`);
-                // หาค่าล่าสุดจริงๆ ของวัน
-                const logs = resp.data || [];
+                currentTodayLogs = resp.data || [];
+                const logs = currentTodayLogs;
                 todayCheckin = logs.filter(l => l.type === 'checkin').pop() || null;
                 todayCheckout = logs.filter(l => l.type === 'checkout').pop() || null;
 
-                // ตรวจสอบสถานะปัจจุบันจาก Log ตัวสุดท้าย
                 const lastLog = logs[logs.length - 1];
                 isCurrentlyIn = lastLog && lastLog.type === 'checkin';
 
@@ -1057,6 +1060,7 @@
             const group = document.getElementById('actionBtnGroup');
             const txtIn = document.getElementById('txtIn');
             const txtOut = document.getElementById('txtOut');
+            const listEl = document.getElementById('todayLogsList');
             if (!el || !group) return;
             el.style.opacity = '1';
 
@@ -1074,6 +1078,33 @@
                 group.classList.add('show-in');
                 if (txtIn) txtIn.textContent = '🟢 เข้างาน';
             }
+
+            // Render Pairs in Today's Log List
+            if (listEl) {
+                const sessions = [];
+                let curr = null;
+                [...currentTodayLogs].sort((a, b) => a.time.localeCompare(b.time)).forEach(l => {
+                    if (l.type === 'checkin') {
+                        if (curr) sessions.push(curr);
+                        curr = { ci: l, co: null };
+                    } else if (l.type === 'checkout') {
+                        if (curr) { curr.co = l; sessions.push(curr); curr = null; }
+                        else sessions.push({ ci: null, co: l });
+                    }
+                });
+                if (curr) sessions.push(curr);
+
+                listEl.innerHTML = sessions.length ? sessions.map(s => {
+                    const ciTime = s.ci ? formatTime(s.ci.time) : '---';
+                    const coTime = s.co ? formatTime(s.co.time) : '---';
+                    return `<div style="padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; font-size: 14px; font-weight: 600;">
+                        <span>🟢 ${ciTime} น.</span>
+                        <span style="opacity: 0.5">→</span>
+                        <span>🔴 ${coTime} น.</span>
+                    </div>`;
+                }).join('') : '';
+            }
+
             validateSteps();
         }
 
@@ -1162,14 +1193,34 @@
             const el = document.getElementById('historyList');
             if (!dates.length) { el.innerHTML = '<div class="empty-state"><div style="font-size:48px">📭</div><div>ไม่มีข้อมูล</div></div>'; return; }
             el.innerHTML = dates.map(date => {
-                const rows = byDate[date].map(l =>
-                    `<div class="history-row">
-        <span class="${l.type === 'checkin' ? 'badge-in' : 'badge-out'}">${l.type === 'checkin' ? 'เข้างาน' : 'ออกงาน'}</span>
-        <span class="history-time">${formatTime(l.time)} น.</span>
-        <span class="history-loc">📍 ${l.location || '-'}</span>
-        ${l.lateMin > 0 ? `<span class="badge-late">สาย ${l.lateMin} นาที</span>` : ''}
-      </div>`
-                ).join('');
+                const dayLogs = byDate[date].sort((a, b) => a.time.localeCompare(b.time));
+                const sessions = [];
+                let curr = null;
+                dayLogs.forEach(l => {
+                    if (l.type === 'checkin') {
+                        if (curr) sessions.push(curr);
+                        curr = { ci: l, co: null };
+                    } else if (l.type === 'checkout') {
+                        if (curr) { curr.co = l; sessions.push(curr); curr = null; }
+                        else sessions.push({ ci: null, co: l });
+                    }
+                });
+                if (curr) sessions.push(curr);
+
+                const rows = sessions.map(s => {
+                    const ciTime = s.ci ? formatTime(s.ci.time) : '---';
+                    const coTime = s.co ? formatTime(s.co.time) : '---';
+                    const lateMin = s.ci ? (s.ci.lateMin || 0) : 0;
+                    return `<div class="history-row" style="justify-content: space-between; align-items: flex-start;">
+                        <div style="flex: 1">
+                            <div style="color:#16a34a; font-weight:700; font-size:14px">🟢 เข้า: ${ciTime} น. ${lateMin > 0 ? `<span class="badge-late">สาย ${lateMin} ม.</span>` : ''}</div>
+                            <div style="color:#dc2626; font-weight:700; font-size:14px; margin-top:4px">🔴 ออก: ${coTime} น.</div>
+                        </div>
+                        <div style="text-align: right; color: #888; font-size:12px">
+                            📍 ${s.ci ? s.ci.location : (s.co ? s.co.location : '-')}
+                        </div>
+                    </div>`;
+                }).join('');
                 return `<div class="history-day"><div class="history-day-header">${formatDateThaiStr(date)}</div>${rows}</div>`;
             }).join('');
         }
@@ -1229,8 +1280,10 @@
 
             // Action Buttons
             if (hasGPS && hasFace) {
+                document.getElementById('actionBtnGroup').style.display = 'flex';
                 document.getElementById('actionBtnGroup').classList.add('visible');
             } else {
+                document.getElementById('actionBtnGroup').style.display = 'none';
                 document.getElementById('actionBtnGroup').classList.remove('visible');
             }
         }
