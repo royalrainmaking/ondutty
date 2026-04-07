@@ -615,7 +615,7 @@
             vertical-align: middle;
             position: relative;
         }
-        
+
         .thumb-img::after {
             content: "🖼️";
             position: absolute;
@@ -715,20 +715,56 @@
                     <div class="stat-value" id="stat1">-</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon">🟢</div>
-                    <div class="stat-label">ออฟฟิศ (ภายใน)</div>
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-label">ตรงเวลา</div>
                     <div class="stat-value" id="stat2" style="color:#22c55e">-</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon">🏠</div>
-                    <div class="stat-label">WFH / นอกสถานที่</div>
-                    <div class="stat-value" id="stat3" style="color:#3b82f6">-</div>
+                    <div class="stat-icon">🕒</div>
+                    <div class="stat-label">มาสาย</div>
+                    <div class="stat-value" id="stat3" style="color:#ef4444">-</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon">📋</div>
                     <div class="stat-label" style="color:#f7931e">ดูประวัติทั้งหมด →</div>
                     <div style="color:#f7931e;font-size:13px;font-weight:600;cursor:pointer" onclick="showPage('logs')">
                         คลิกเพื่อดู</div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <div class="section-header">
+                    <div class="section-title">เช็คชื่อการเข้างานวันนี้</div>
+                    <div class="btn-group" style="display:flex; gap:8px">
+                        <span id="dashStatusFilter"
+                            style="font-size:13px; color:#888; align-self:center; margin-right:8px">แสดง: ทั้งหมด</span>
+                    </div>
+                </div>
+                <div class="filter-row" style="margin-bottom:16px">
+                    <button class="btn-sm" id="btnFilterAll" onclick="filterDashTable('all')"
+                        style="background:#10b981; color:#fff">👥 ทั้งหมด</button>
+                    <button class="btn-sm" id="btnFilterDone" onclick="filterDashTable('done')"
+                        style="background:#f0fdf4; color:#10b981">✅ ลงชื่อแล้ว</button>
+                    <button class="btn-sm" id="btnFilterMissing" onclick="filterDashTable('missing')"
+                        style="background:#fff5f5; color:#dc2626">❌ ยังไม่ลงชื่อ</button>
+                </div>
+                <div style="overflow-x:auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>พนักงาน</th>
+                                <th>ฝ่าย/ตำแหน่ง</th>
+                                <th>เวลาเข้า</th>
+                                <th>เวลาออก</th>
+                                <th>สถานะ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashStatusBody">
+                            <tr>
+                                <td colspan="5" class="empty-state">กำลังโหลดข้อมูล...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -961,16 +997,64 @@
             } catch (e) { }
         }
 
+        let dashAttendanceData = [];
         async function renderDashStats() {
             const now = new Date();
             const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             try {
                 const r = await api(`?action=getLogs&dateFrom=${today}&dateTo=${today}`);
-                const todayLogs = (r.data || []).filter(l => l.type === 'checkin');
-                document.getElementById('stat1').textContent = todayLogs.length;
-                document.getElementById('stat2').textContent = todayLogs.filter(l => (l.location || '').includes('ออฟฟิศ')).length;
-                document.getElementById('stat3').textContent = todayLogs.filter(l => !(l.location || '').includes('ออฟฟิศ')).length;
+                const todayLogs = r.data || [];
+                const checkins = todayLogs.filter(l => l.type === 'checkin');
+
+                document.getElementById('stat1').textContent = checkins.length;
+                document.getElementById('stat2').textContent = checkins.filter(l => Number(l.lateMin || 0) <= 0).length;
+                document.getElementById('stat3').textContent = checkins.filter(l => Number(l.lateMin || 0) > 0).length;
+
+                // Sync with Attendance List
+                dashAttendanceData = allUsers.filter(u => u.role !== 'admin').map(u => {
+                    const logs = todayLogs.filter(l => String(l.userId) === String(u.id));
+                    const ci = logs.find(l => l.type === 'checkin');
+                    const co = logs.find(l => l.type === 'checkout');
+                    return { ...u, ci, co };
+                });
+                filterDashTable('all');
+
             } catch (e) { document.getElementById('stat1').textContent = '?'; }
+        }
+
+        function filterDashTable(mode) {
+            const tbody = document.getElementById('dashStatusBody');
+            const totalEl = document.getElementById('dashStatusFilter');
+
+            // UI Update buttons
+            document.getElementById('btnFilterAll').style.opacity = mode === 'all' ? '1' : '0.6';
+            document.getElementById('btnFilterDone').style.opacity = mode === 'done' ? '1' : '0.6';
+            document.getElementById('btnFilterMissing').style.opacity = mode === 'missing' ? '1' : '0.6';
+
+            let filtered = dashAttendanceData;
+            if (mode === 'done') filtered = dashAttendanceData.filter(d => d.ci);
+            if (mode === 'missing') filtered = dashAttendanceData.filter(d => !d.ci);
+
+            totalEl.textContent = `แสดง: ${mode === 'all' ? 'ทั้งหมด' : mode === 'done' ? 'ลงชื่อแล้ว' : 'ยังไม่ลงชื่อ'} (${filtered.length} คน)`;
+
+            if (!filtered.length) {
+                tbody.innerHTML = `<tr><td colspan="5" class="empty-state">ไม่พบข้อมูล</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(d => {
+                const statusHtml = d.ci
+                    ? `<span class="badge badge-active">✅ ลงชื่อแล้ว</span>`
+                    : `<span class="badge" style="background:#fee2e2; color:#ef4444">❌ ยังไม่ลงชื่อ</span>`;
+
+                return `<tr>
+                    <td><strong>${d.name}</strong><br><small style="color:#888">${d.phone}</small></td>
+                    <td><small>${d.department || '-'}</small><br><small style="color:#aaa">${d.position || '-'}</small></td>
+                    <td style="color:#059669; font-weight:700">${d.ci ? d.ci.time + ' น.' : '-'}</td>
+                    <td style="color:#dc2626; font-weight:700">${d.co ? d.co.time + ' น.' : '-'}</td>
+                    <td>${statusHtml}</td>
+                </tr>`;
+            }).join('');
         }
 
         // --- LOGS ---
@@ -1054,8 +1138,9 @@
                 const photoOutHtml = isValidImg(co?.photo) ? `<img src="${co.photo}" class="thumb-img" onclick="previewImg(this.src)" title="ภาพออกงาน" onerror="this.style.display='none'">` : '';
                 const mediaHtml = [photoHtml, photoOutHtml].filter(x => x).join(' ') || '-';
 
-                const mapObj = ci || co;
-                const mapHtml = (mapObj && mapObj.lat) ? `<a href="https://maps.google.com/?q=${mapObj.lat},${mapObj.lng}" target="_blank" style="color:#f7931e;font-size:12px">📍 แผนที่</a>` : '-';
+                const mapInHtml = (ci && ci.lat) ? `<a href="https://maps.google.com/?q=${ci.lat},${ci.lng}" target="_blank" style="color:#16a34a;font-size:11px">📍 แผนที่เข้า</a>` : '';
+                const mapOutHtml = (co && co.lat) ? `<a href="https://maps.google.com/?q=${co.lat},${co.lng}" target="_blank" style="color:#dc2626;font-size:11px">📍 แผนที่ออก</a>` : '';
+                const mapHtml = [mapInHtml, mapOutHtml].filter(x => x).join('<br>') || '-';
 
                 let hrsHtml = '<span style="color:#aaa">-</span>';
                 if (ci && co && ci.time && co.time) {
@@ -1303,41 +1388,138 @@
         async function renderReport() {
             const month = document.getElementById('reportMonth').value;
             const uf = document.getElementById('reportUser').value;
-            const lateRate = Number(appSettings.latePerMin) || 5;
-            const workDays = Number(appSettings.workDaysPerMonth) || 22;
+            if (!month) { showToast('กรุณาเลือกเดือนก่อน', 'warning'); return; }
+
             showLoading(true);
             try {
-                let path = '?action=getLogs';
-                if (month) path += `&dateFrom=${month}-01&dateTo=${month}-31`;
-                const r = await api(path);
+                const r = await api(`?action=getLogs&dateFrom=${month}-01&dateTo=${month}-31`);
                 let logs = r.data || [];
                 if (uf) logs = logs.filter(l => String(l.userId) === String(uf));
+
+                // Group by user
                 const byUser = {};
-                logs.forEach(l => { if (!byUser[l.userId]) byUser[l.userId] = { ci: [], co: [] }; l.type === 'checkin' ? byUser[l.userId].ci.push(l) : byUser[l.userId].co.push(l); });
-                let html = '';
-                Object.keys(byUser).forEach(uid => {
-                    const u = allUsers.find(x => String(x.id) === String(uid)) || { name: uid };
-                    const ci = byUser[uid].ci;
-                    const worked = new Set(ci.map(l => l.date)).size;
-                    const totalLate = ci.reduce((s, l) => s + (Number(l.lateMin) || 0), 0);
-                    html += `<div style="background:#fff;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.06)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div><strong style="font-size:16px">${u.name}</strong><br><small style="color:#888">รายงาน ${month || 'ทั้งหมด'}</small></div>
-          <div style="text-align:right"><div style="color:#16a34a;font-weight:700">มาทำงาน: ${worked} วัน</div><div style="color:#dc2626;font-weight:700">สายรวม: ${totalLate} นาที</div></div>
-        </div>
-        <table class="data-table"><thead><tr><th>วันที่</th><th>ประเภท</th><th>เวลา</th></tr></thead>
-        <tbody>${[...ci, ...byUser[uid].co].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map(l => `<tr><td>${formatDateShort(l.date)}</td><td><span class="badge ${l.type === 'checkin' ? 'badge-in' : 'badge-out'}">${l.type === 'checkin' ? 'เข้างาน' : 'ออกงาน'}</span></td><td>${l.time} น.${l.lateMin > 0 ? ` <span class="badge badge-late">สาย ${l.lateMin} นาที</span>` : ''}</td></tr>`).join('')}</tbody></table>
-      </div>`;
+                logs.forEach(l => {
+                    if (!byUser[l.userId]) byUser[l.userId] = { ci: [], co: [], name: l.userName, logs: [] };
+                    if (l.type === 'checkin') byUser[l.userId].ci.push(l);
+                    else byUser[l.userId].co.push(l);
+                    byUser[l.userId].logs.push(l);
                 });
-                document.getElementById('reportContent').innerHTML = html || '<div class="empty-state">ไม่พบข้อมูล</div>';
-            } catch (e) { showToast('❌ ' + e.message, 'error'); }
-            finally { showLoading(false); }
+
+                let html = '';
+
+                // Summary Table for "All Employees"
+                if (!uf) {
+                    html += `
+                    <div style="background:#fff;border-radius:14px;padding:20px;margin-bottom:24px;box-shadow:0 2px 12px rgba(0,0,0,.08); border-top: 4px solid #10b981;">
+                        <h3 style="margin-bottom:16px; color:#333; display:flex; align-items:center; gap:8px">📊 สรุปภาพรวมทุกพนักงาน - ${month}</h3>
+                        <div style="overflow-x:auto">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>พนักงาน</th>
+                                    <th style="text-align:center">วันทำงาน</th>
+                                    <th style="text-align:center">มาสาย (ครั้ง)</th>
+                                    <th style="text-align:center">สายสะสม (นาที)</th>
+                                    <th style="text-align:center">ออกก่อน (นาที)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${allUsers.filter(u => u.role !== 'admin').map(u => {
+                        const raw = byUser[u.id] || { ci: [], co: [] };
+                        const worked = new Set(raw.ci.map(l => l.date)).size;
+                        const lateCount = raw.ci.filter(l => Number(l.lateMin || 0) > 0).length;
+                        const lateMins = raw.ci.reduce((s, l) => s + Math.max(0, Number(l.lateMin || 0)), 0);
+                        const earlyMins = raw.co.reduce((s, l) => s + Math.abs(Math.min(0, Number(l.lateMin || 0))), 0);
+
+                        return `<tr>
+                                        <td><strong>${u.name}</strong><br><small style="color:#888">${u.phone}</small></td>
+                                        <td style="text-align:center">${worked} วัน</td>
+                                        <td style="text-align:center; color:${lateCount > 0 ? '#ef4444' : '#16a34a'}">${lateCount}</td>
+                                        <td style="text-align:center; color:${lateMins > 0 ? '#f59e0b' : '#333'}">${lateMins}</td>
+                                        <td style="text-align:center; color:${earlyMins > 0 ? '#ef4444' : '#333'}">${earlyMins}</td>
+                                    </tr>`;
+                    }).join('')}
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>`;
+                }
+
+                // Individual Details
+                const usersToDisplay = uf ? [uf] : Object.keys(byUser);
+                usersToDisplay.forEach(uid => {
+                    const data = byUser[uid];
+                    if (!data) return;
+                    const u = allUsers.find(x => String(x.id) === String(uid)) || { name: data.name };
+
+                    const workedDays = new Set(data.ci.map(l => l.date)).size;
+                    const totalLate = data.ci.reduce((s, l) => s + Math.max(0, Number(l.lateMin || 0)), 0);
+
+                    html += `
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:20px; margin-bottom:16px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:2px solid #e2e8f0; padding-bottom:10px;">
+                            <div>
+                                <strong style="font-size:18px; color:#1e293b">${u.name}</strong>
+                                <div style="font-size:13px; color:#64748b">กลุ่ม: ${u.department || '-'} | ตำแหน่ง: ${u.position || '-'}</div>
+                            </div>
+                            <div style="text-align:right">
+                                <div style="color:#059669; font-weight:700">มาทำงาน: ${workedDays} วัน</div>
+                                <div style="color:#dc2626; font-weight:700">สายสะสม: ${totalLate} นาที</div>
+                            </div>
+                        </div>
+                        <table class="data-table" style="background: white; border-radius: 8px;">
+                            <thead>
+                                <tr>
+                                    <th>วันที่</th>
+                                    <th>เข้างาน</th>
+                                    <th>ออกงาน</th>
+                                    <th>สถานะ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${(() => {
+                            // Group logs by date for this user
+                            const dateMap = {};
+                            data.logs.forEach(l => {
+                                if (!dateMap[l.date]) dateMap[l.date] = { ci: null, co: null };
+                                if (l.type === 'checkin') dateMap[l.date].ci = l;
+                                else dateMap[l.date].co = l;
+                            });
+
+                            return Object.keys(dateMap).sort((a, b) => a.localeCompare(b)).map(date => {
+                                const pair = dateMap[date];
+                                const late = (pair.ci && Number(pair.ci.lateMin || 0) > 0) ? Number(pair.ci.lateMin) : 0;
+                                const early = (pair.co && Number(pair.co.lateMin || 0) < 0) ? Math.abs(Number(pair.co.lateMin)) : 0;
+
+                                return `<tr>
+                                            <td>${formatDateShort(date)}</td>
+                                            <td style="color:#059669; font-weight:600">${pair.ci ? pair.ci.time : '-'}</td>
+                                            <td style="color:#dc2626; font-weight:600">${pair.co ? pair.co.time : '-'}</td>
+                                            <td>
+                                                ${late > 0 ? `<span class="badge badge-late" style="background:#fee2e2; color:#ef4444">สาย ${late}น.</span>` : ''}
+                                                ${early > 0 ? `<span class="badge badge-late" style="background:#fff7ed; color:#f59e0b">ออกก่อน ${early}น.</span>` : ''}
+                                                ${late <= 0 && early <= 0 && pair.ci && pair.co ? `<span class="badge badge-active">ปกติ</span>` : ''}
+                                                ${!pair.co && pair.ci ? `<span style="color:#94a3b8; font-size:12px">ยังไม่กดออก</span>` : ''}
+                                            </td>
+                                        </tr>`;
+                            }).join('');
+                        })()}
+                            </tbody>
+                        </table>
+                    </div>`;
+                });
+
+                document.getElementById('reportContent').innerHTML = html || '<div class="empty-state">ไม่พบข้อมูลในเดือนนี้</div>';
+            } catch (e) {
+                console.error(e);
+                showToast('❌ ' + e.message, 'error');
+            } finally { showLoading(false); }
         }
 
         // --- SETTINGS ---
         function fillSettingsForm() {
             const s = appSettings;
-            
+
             // Helper to extract HH:mm from various formats
             function toTimeTag(val) {
                 if (!val) return '';
@@ -1347,14 +1529,14 @@
                     let hStr = timePart.split(':')[0];
                     let mStr = timePart.split(':')[1];
                     let h = parseInt(hStr);
-                    if (str.endsWith('Z')) h = (h + 7) % 24; 
+                    if (str.endsWith('Z')) h = (h + 7) % 24;
                     return h.toString().padStart(2, '0') + ':' + mStr.substring(0, 2).padStart(2, '0');
                 }
                 const parts = str.split(':');
                 if (parts.length >= 2) {
                     return parts[0].padStart(2, '0') + ':' + parts[1].substring(0, 2).padStart(2, '0');
                 }
-                return str; 
+                return str;
             }
 
             document.getElementById('stCompany').value = s.companyName || '';

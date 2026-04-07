@@ -892,20 +892,25 @@
         }
 
         function getGPS() {
-            if (!navigator.geolocation) {
-                alert('⚠️ เบราว์เซอร์ของคุณไม่สนับสนุนการระบุตำแหน่ง');
-                logout();
-                return;
-            }
-            navigator.geolocation.getCurrentPosition(p => {
-                gpsLat = p.coords.latitude; gpsLng = p.coords.longitude;
-                document.getElementById('gpsStatus').textContent = '📍 พบตำแหน่งของคุณ';
-                document.getElementById('gpsCoords').textContent = `${gpsLat.toFixed(5)}, ${gpsLng.toFixed(5)}`;
-                document.getElementById('mapArea').style.background = 'linear-gradient(135deg,#dbeafe,#bfdbfe)';
-                validateSteps();
-            }, () => {
-                alert('⚠️ กรุณาอนุญาตให้เข้าถึง GPS/ตำแหน่งที่ตั้ง เพื่อใช้งานระบบลงเวลางาน');
-                logout();
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    alert('⚠️ เบราว์เซอร์ของคุณไม่สนับสนุนการระบุตำแหน่ง');
+                    logout();
+                    reject('Geolocation not supported');
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(p => {
+                    gpsLat = p.coords.latitude; gpsLng = p.coords.longitude;
+                    document.getElementById('gpsStatus').textContent = '📍 พบตำแหน่งของคุณ';
+                    document.getElementById('gpsCoords').textContent = `${gpsLat.toFixed(5)}, ${gpsLng.toFixed(5)}`;
+                    document.getElementById('mapArea').style.background = 'linear-gradient(135deg,#dbeafe,#bfdbfe)';
+                    validateSteps();
+                    resolve({ lat: gpsLat, lng: gpsLng });
+                }, (err) => {
+                    alert('⚠️ กรุณาอนุญาตให้เข้าถึง GPS/ตำแหน่งที่ตั้ง เพื่อใช้งานระบบลงเวลางาน');
+                    logout();
+                    reject(err);
+                }, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
             });
         }
 
@@ -1316,6 +1321,7 @@
             if (todayCheckin && !todayCheckout) { showToast('คุณเข้างานไปแล้ว และยังไม่ได้ออกงาน', 'warning'); return; }
             
             setBtnLoading('btnIn', 'spinIn', 'txtIn', true);
+            try { await getGPS(); } catch(e) { console.error('GPS re-fetch error', e); }
             const now = new Date();
             const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -1385,6 +1391,7 @@
             if (!isCurrentlyIn) { showToast('คุณยังไม่ได้กดเข้างาน (ไม่สามารถออกงานได้)', 'error'); return; }
             
             setBtnLoading('btnOut', 'spinOut', 'txtOut', true);
+            try { await getGPS(); } catch(e) { console.error('GPS re-fetch error', e); }
             const now = new Date();
             const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -1456,13 +1463,19 @@
                     const ciTime = s.ci ? formatTime(s.ci.time) : '---';
                     const coTime = s.co ? formatTime(s.co.time) : '---';
                     const lateMin = s.ci ? (s.ci.lateMin || 0) : 0;
+                    const mapInLink = (s.ci && s.ci.lat) ? `<a href="https://maps.google.com/?q=${s.ci.lat},${s.ci.lng}" target="_blank" style="color:#16a34a;text-decoration:none;font-size:11px">📍 แผนที่เข้า</a>` : '';
+                    const mapOutLink = (s.co && s.co.lat) ? `<a href="https://maps.google.com/?q=${s.co.lat},${s.co.lng}" target="_blank" style="color:#dc2626;text-decoration:none;font-size:11px">📍 แผนที่ออก</a>` : '';
+
                     return `<div class="history-row" style="justify-content: space-between; align-items: flex-start;">
                         <div style="flex: 1">
-                            <div style="color:#16a34a; font-weight:700; font-size:14px">🟢 เข้า: ${ciTime} น. ${lateMin > 0 ? `<span class="badge-late">สาย ${lateMin} ม.</span>` : ''}</div>
-                            <div style="color:#dc2626; font-weight:700; font-size:14px; margin-top:4px">🔴 ออก: ${coTime} น.</div>
-                        </div>
-                        <div style="text-align: right; color: #888; font-size:12px">
-                            📍 ${s.ci ? s.ci.location : (s.co ? s.co.location : '-')}
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="color:#16a34a; font-weight:700; font-size:14px">🟢 เข้า: ${ciTime} น. ${lateMin > 0 ? `<span class="badge-late">สาย ${lateMin} ม.</span>` : ''}</div>
+                                ${mapInLink}
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px">
+                                <div style="color:#dc2626; font-weight:700; font-size:14px">🔴 ออก: ${coTime} น.</div>
+                                ${mapOutLink}
+                            </div>
                         </div>
                     </div>`;
                 }).join('');
