@@ -1152,18 +1152,10 @@
             countdownEl.style.display = 'block';
             document.getElementById('faceStatus').style.display = 'none';
 
-            if (isFirst) {
-                showToast('💡 เตรียมตัวสแกนลงทะเบียนใบหน้าครั้งแรก', 'info');
-                for (let i = 5; i > 0; i--) {
-                    countdownEl.textContent = i;
-                    await new Promise(r => setTimeout(r, 1000));
-                }
-            } else {
-                showToast('🔍 เตรียมตรวจสอบใบหน้า...', 'info');
-                for (let i = 3; i > 0; i--) {
-                    countdownEl.textContent = i;
-                    await new Promise(r => setTimeout(r, 1000));
-                }
+            showToast(isFirst ? '💡 เตรียมตัวสแกนลงทะเบียนใบหน้าครั้งแรก' : '🔍 เตรียมตรวจสอบใบหน้า...', 'info');
+            for (let i = 5; i > 0; i--) {
+                countdownEl.textContent = i;
+                await new Promise(r => setTimeout(r, 1000));
             }
 
             countdownEl.style.display = 'none';
@@ -1233,8 +1225,7 @@
             const isFirstTime = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null' || currentUser.faceDescriptor === 'undefined';
 
             if (isFirstTime) {
-                const confirm_ = confirm('📸 ยืนยันการลงทะเบียนใบหน้าใหม่ด้วยรูปแบบ Biometric Vector?');
-                if (!confirm_) { isCapturing = false; detectionCount = 0; return; }
+                // Auto-register without confirmation as per user request
 
                 showToast('⏳ กำลังลงทะเบียนรูปแบบเวกเตอร์...', 'info');
                 const signature = getFaceSignature(currentDetection);
@@ -1322,10 +1313,10 @@
             document.getElementById('capturedImg').style.borderColor = '#e2e8f0';
             document.getElementById('faceCaptured').style.display = 'none';
             document.getElementById('captureBtn').style.display = 'none';
-            document.getElementById('faceScannerFlow').style.display = 'none';
-            document.getElementById('btnOpenCamera').style.display = 'block';
-            document.getElementById('videoContainer').style.display = 'none';
             if (faceStream) faceStream.getTracks().forEach(t => t.stop());
+
+            // Auto restart scanner instead of showing button
+            startFaceScanner();
             validateSteps();
         }
 
