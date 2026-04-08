@@ -961,7 +961,7 @@
         let isCapturing = false;      // guard
         let faceVerified = false;     // SUCCESS/FAIL flag
         let faceDetected = false;     // is face currently in frame
-        const FACE_THRESHOLD = 0.10;   // ผ่อนปรนขึ้นเล็กน้อย (Relaxed threshold for better user experience)
+        const FACE_THRESHOLD = 0.075;   // กลับมาใช้ค่าที่เข้มงวดขึ้น เพื่อป้องกันคนอื่นสแกนแทน (Security focus)
 
         async function loadFaceModels() {
             const statusEl = document.getElementById('faceStatus');
@@ -1069,8 +1069,19 @@
                         faceDetected = true;
                         detectionCount++;
 
+                        // Recognition mode: Real-time comparison
+                        let distance = 1.0;
+                        if (!isFirst && storedLandmarks) {
+                            distance = calculateSimilarity(landmarks, storedLandmarks);
+                        }
+
                         // Draw Landmarks (Dots)
-                        ctx.fillStyle = isFirst ? '#10b981' : '#6366f1';
+                        // สีจุดเปลี่ยนตามสถานะ: เขียว=ดีเยี่ยม/ลงทะเบียน, ส้ม=ยังไม่ตรง, น้ำเงิน=กำลังตรวจ
+                        if (isFirst) ctx.fillStyle = '#10b981';
+                        else if (distance <= FACE_THRESHOLD) ctx.fillStyle = '#22c55e';
+                        else if (distance <= FACE_THRESHOLD + 0.02) ctx.fillStyle = '#f59e0b';
+                        else ctx.fillStyle = '#6366f1';
+
                         for (let i = 0; i < landmarks.length; i += 10) {
                             const pt = landmarks[i];
                             ctx.beginPath();
@@ -1090,10 +1101,10 @@
                             }
                         } else {
                             // Recognition mode: Real-time comparison
-                            const distance = calculateSimilarity(landmarks, storedLandmarks);
                             badge.style.display = 'block';
 
-                            const matchPercent = Math.max(0, Math.min(100, Math.round((1 - distance) * 100)));
+                            // ปรับสูตร % ให้ตรงกับความรู้สึก (ขยับใกล้ 100% เมื่อเข้าใกล้เกณฑ์)
+                            const matchPercent = Math.max(0, Math.min(100, Math.round((1 - (distance / 0.15)) * 100)));
                             badge.textContent = `🔍 ตรวจสอบใบหน้า: ${matchPercent}%`;
 
                             if (distance <= FACE_THRESHOLD) {
@@ -1106,12 +1117,12 @@
                                 }
                             } else {
                                 badge.style.background = '#f59e0b';
-                                // Timeout after 10 seconds of active searching without match
-                                if (Date.now() - matchingStartTime > 10000) {
+                                // Timeout after 12 seconds of active searching without match
+                                if (Date.now() - matchingStartTime > 12000) {
                                     isCapturing = true;
-                                    showToast('❌ ไม่สามารถยืนยันตัวตนได้ในตอนนี้', 'error');
+                                    showToast('❌ ยืนยันตัวตนไม่สำเร็จในตอนนี้', 'error');
                                     setTimeout(() => {
-                                        alert(`❌ ตรวจสอบไม่ผ่าน (Error: ${distance.toFixed(4)})\nกรุณามองกล้องตรงใบหน้าเดิมที่ลงทะเบียนไว้ หรือติดต่อผู้ดูแลครับ`);
+                                        alert(`❌ ยืนยันตัวตนไม่สำเร็จ\nกรุณามองกล้องตรงให้นิ่งที่สุด หรือลงทะเบียนใบหน้าใหม่หากมีการเปลี่ยนแปลงครับ`);
                                         logout();
                                     }, 500);
                                     return;
@@ -1125,9 +1136,6 @@
                         detectionCount = 0;
                         badge.style.display = 'none';
                         document.getElementById('faceGuide').classList.remove('detected');
-
-                        // Reset timeout if face leaves frame, so user can try again easily
-                        // matchingStartTime = Date.now(); // Optional: reset or keep counting?
                     }
                 }
                 faceDetectionLoop = requestAnimationFrame(render);
