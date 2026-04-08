@@ -961,7 +961,7 @@
         let isCapturing = false;      // guard
         let faceVerified = false;     // SUCCESS/FAIL flag
         let faceDetected = false;     // is face currently in frame
-        const FACE_THRESHOLD = 0.045;   // เข้มงวดสูงสุด เพื่อป้องกันบุคคลอื่น (Extreme Security)
+        // FACE_THRESHOLD moved to biometric section
 
         async function loadFaceModels() {
             const statusEl = document.getElementById('faceStatus');
@@ -1165,44 +1165,46 @@
             runFaceDetectionLoop();
         }
 
-        // Helper to calculate similarity with Normalization (Centering & Scaling)
+        const FACE_THRESHOLD = 0.05;   // เกณฑ์สำหรับ Biometric Vector
+
+        // Biometric Landmarks for Vector Signature (Top, Bottom, Ears, Eyes, Nose, Mouth)
+        const SIG_INDICES = [4, 1, 10, 152, 33, 263, 61, 291, 199, 234, 454, 168, 127, 356, 70, 300, 133, 362];
+
+        function getFaceSignature(lm) {
+            try {
+                // Base reference: Eye-to-Eye distance
+                const pL = lm[33];
+                const pR = lm[263];
+                const eyeDist = Math.sqrt(Math.pow(pL.x - pR.x, 2) + Math.pow(pL.y - pR.y, 2) + Math.pow(pL.z - pR.z, 2)) || 0.1;
+
+                // Center point for distance vector (between eyes)
+                const center = {
+                    x: (pL.x + pR.x) / 2,
+                    y: (pL.y + pR.y) / 2,
+                    z: (pL.z + pR.z) / 2
+                };
+
+                // Create a 1D vector of relative distances to key features
+                // This is robust against rotation and translation
+                return SIG_INDICES.map(idx => {
+                    const p = lm[idx];
+                    const d = Math.sqrt(Math.pow(p.x - center.x, 2) + Math.pow(p.y - center.y, 2) + Math.pow(p.z - center.z, 2));
+                    return d / eyeDist;
+                });
+            } catch (e) { return null; }
+        }
+
         function calculateSimilarity(landmarks1, landmarks2) {
-            function getDistance(p1, p2) {
-                return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2) + Math.pow(p1.z - p2.z, 2));
-            }
+            const sig1 = getFaceSignature(landmarks1);
+            const sig2 = (typeof landmarks2[0] === 'number') ? landmarks2 : getFaceSignature(landmarks2);
+            if (!sig1 || !sig2) return 1.0;
 
-            function normalize(lm) {
-                // Indices for left eye outer (33) and right eye outer (263) in MediaPipe
-                try {
-                    const pL = lm[33];
-                    const pR = lm[263];
-                    const eyeDist = getDistance(pL, pR) || 0.1;
-
-                    // 1. Center (Midpoint between eyes)
-                    const cx = (pL.x + pR.x) / 2;
-                    const cy = (pL.y + pR.y) / 2;
-                    const cz = (pL.z + pR.z) / 2;
-
-                    // 2. Scale by Eye Distance (more robust)
-                    return lm.flatMap(p => [
-                        (p.x - cx) / eyeDist,
-                        (p.y - cy) / eyeDist,
-                        (p.z - cz) / eyeDist
-                    ]);
-                } catch (e) {
-                    return lm.flatMap(p => [p.x, p.y, p.z]);
-                }
-            }
-
-            const v1 = normalize(landmarks1);
-            const v2 = normalize(landmarks2);
-
+            // Euclidean Distance between signatures
             let sumSq = 0;
-            for (let i = 0; i < v1.length; i++) {
-                let diff = v1[i] - v2[i];
-                sumSq += diff * diff;
+            for (let i = 0; i < sig1.length; i++) {
+                sumSq += Math.pow(sig1[i] - sig2[i], 2);
             }
-            return Math.sqrt(sumSq) / Math.sqrt(v1.length);
+            return Math.sqrt(sumSq) / sig1.length;
         }
 
         async function captureFace(preComputedDistance = null) {
@@ -1226,26 +1228,26 @@
             const isFirstTime = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null' || currentUser.faceDescriptor === 'undefined';
 
             if (isFirstTime) {
-                const confirm_ = confirm('📸 ยืนยันการลงทะเบียนใบหน้าใหม่ด้วยระบบ MediaPipe?');
+                const confirm_ = confirm('📸 ยืนยันการลงทะเบียนใบหน้าใหม่ด้วยรูปแบบ Biometric Vector?');
                 if (!confirm_) { isCapturing = false; detectionCount = 0; return; }
 
-                showToast('⏳ กำลังลงทะเบียน...', 'info');
-                const descArr = currentDetection; // Store landmarks as descriptor
+                showToast('⏳ กำลังลงทะเบียนรูปแบบเวกเตอร์...', 'info');
+                const signature = getFaceSignature(currentDetection);
                 await api('', 'POST', {
                     action: 'saveUser',
                     id: currentUser.id, phone: currentUser.phone, name: currentUser.name,
                     password: currentUser.password, role: currentUser.role,
                     salary: currentUser.salary, shift: currentUser.shift || 'standard',
-                    active: true, faceDescriptor: JSON.stringify(descArr),
+                    active: true, faceDescriptor: JSON.stringify(signature),
                     department: currentUser.department, position: currentUser.position
                 });
 
-                currentUser.faceDescriptor = JSON.stringify(descArr);
+                currentUser.faceDescriptor = JSON.stringify(signature);
                 sessionStorage.setItem('wfh_current', JSON.stringify(currentUser));
                 faceVerified = true;
 
                 resEl.style.color = '#10b981';
-                resEl.textContent = '✅ ลงทะเบียน MediaPipe สำเร็จ';
+                resEl.textContent = '✅ ลงทะเบียนรูปแบบเวกเตอร์สำเร็จ';
                 overlay.innerHTML = '✔️';
                 overlay.classList.add('success', 'show');
 
