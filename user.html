@@ -796,10 +796,6 @@
                     <!-- Removed btnContinue as per user request -->
                 </div>
             </div>
-            <button class="btn-camera" id="startScanBtn" onclick="startFaceScanning()"
-                style="display:none; background:#10b981">
-                🔍 เริ่มการตรวจสอบใบหน้า
-            </button>
             <button class="btn-camera" id="captureBtn" onclick="captureFace()" style="display:none">
                 📸 บันทึกภาพใบหน้า
             </button>
@@ -945,7 +941,7 @@
 
             faceDetector = await FaceDetector.createFromOptions(vision, {
                 baseOptions: {
-                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite`,
+                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.task`,
                     delegate: "GPU"
                 },
                 runningMode: "VIDEO"
@@ -953,7 +949,7 @@
 
             faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
                 baseOptions: {
-                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.tflite`,
+                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
                     delegate: "GPU"
                 },
                 runningMode: "VIDEO",
@@ -990,7 +986,9 @@
 
                 statusEl.style.display = 'none';
                 container.style.display = 'block';
-                document.getElementById('startScanBtn').style.display = 'block';
+
+                // เริ่มสแกนทันทีเมื่อกล้องพร้อม
+                startFaceScanning();
 
                 detectionCount = 0;
                 isCapturing = false;
