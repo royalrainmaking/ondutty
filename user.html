@@ -768,45 +768,10 @@
             }
         }
 
-        /* Head Movement Instructions */
-        .movement-instruction {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(16, 185, 129, 0.9);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 700;
-            text-align: center;
-            z-index: 110;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            display: none;
-            width: 80%;
-        }
-
+        /* Head Movement Instructions removed as per user request */
+        .movement-instruction,
         .movement-progress {
-            position: absolute;
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: none;
-            gap: 8px;
-            z-index: 110;
-        }
-
-        .progress-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.3);
-            border: 2px solid white;
-        }
-
-        .progress-dot.done {
-            background: #22c55e;
+            display: none !important;
         }
     </style>
 </head>
@@ -862,17 +827,7 @@
 
                     <!-- Countdown Overlay -->
                     <div id="countdownOverlay">
-                        <div id="countdownText">3</div>
-                    </div>
-
-                    <!-- Movement Instructions -->
-                    <div id="movementInstruction" class="movement-instruction">หันหน้าไปทางซ้าย</div>
-                    <div id="movementProgress" class="movement-progress">
-                        <div class="progress-dot" id="dot-center"></div>
-                        <div class="progress-dot" id="dot-left"></div>
-                        <div class="progress-dot" id="dot-right"></div>
-                        <div class="progress-dot" id="dot-up"></div>
-                        <div class="progress-dot" id="dot-down"></div>
+                        <div id="countdownText">5</div>
                     </div>
 
                     <!-- Face Frame Guide -->
@@ -1111,8 +1066,7 @@
             overlay.style.display = 'flex';
 
             movementState = 'countdown';
-
-            let count = 3;
+            let count = 5;
             text.textContent = count;
 
             const timer = setInterval(() => {
@@ -1134,16 +1088,6 @@
             const overlay = document.getElementById('faceOverlay');
             const ctx = overlay.getContext('2d');
             const badge = document.getElementById('faceDetectedBadge');
-            const instr = document.getElementById('movementInstruction');
-            const prog = document.getElementById('movementProgress');
-
-            if (isFirstTimeScan) {
-                prog.style.display = 'flex';
-                instr.style.display = 'block';
-                movementsCompleted = { center: false, left: false, right: false, up: false, down: false };
-                movementState = 'center';
-                updateProgressDots();
-            }
 
             const render = async () => {
                 if (video.readyState < 2 || isCapturing) {
@@ -1174,16 +1118,12 @@
 
                         document.getElementById('faceGuide').classList.add('detected');
 
-                        if (isFirstTimeScan) {
-                            handleLiveness(landmarks);
-                        } else {
-                            detectionCount++;
-                            badge.style.display = 'block';
-                            badge.textContent = `✅ ตรวจสอบใบหน้า... (${Math.min(100, Math.round(detectionCount / 10 * 100))}%)`;
-                            if (detectionCount >= 10) {
-                                isCapturing = true;
-                                captureFace();
-                            }
+                        detectionCount++;
+                        badge.style.display = 'block';
+                        badge.textContent = `✅ ตรวจสอบใบหน้า... (${Math.min(100, Math.round(detectionCount / 10 * 100))}%)`;
+                        if (detectionCount >= 10) {
+                            isCapturing = true;
+                            captureFace();
                         }
                     } else {
                         faceDetected = false;
@@ -1191,10 +1131,6 @@
                         detectionCount = 0;
                         badge.style.display = 'none';
                         document.getElementById('faceGuide').classList.remove('detected');
-                        if (isFirstTimeScan) {
-                            instr.textContent = '⚠️ ไม่พบใบหน้า กรุณามองตรงมาที่กล้อง';
-                            instr.style.background = '#ef4444';
-                        }
                     }
                 }
                 faceDetectionLoop = requestAnimationFrame(render);
@@ -1203,132 +1139,11 @@
             faceDetectionLoop = requestAnimationFrame(render);
         }
 
-        function handleLiveness(landmarks) {
-            const instr = document.getElementById('movementInstruction');
-            instr.style.background = 'rgba(16, 185, 129, 0.9)';
-
-            function speak(txt) {
-                if ('speechSynthesis' in window) {
-                    window.speechSynthesis.cancel(); // stop current
-                    const msg = new SpeechSynthesisUtterance(txt);
-                    msg.lang = 'th-TH';
-                    window.speechSynthesis.speak(msg);
-                }
-            }
-
-            // Basic head pose estimation from landmarks
-            // Nose tip: 4
-            // Left eye outer: 33
-            // Right eye outer: 263
-            // Top forehead: 10
-            // Bottom chin: 152
-
-            const nose = landmarks[4];
-            const leftEye = landmarks[33];
-            const rightEye = landmarks[263];
-            const forehead = landmarks[10];
-            const chin = landmarks[152];
-
-            // Normalize relative positions
-            const horizontalRatio = (nose.x - leftEye.x) / (rightEye.x - leftEye.x);
-            const verticalRatio = (nose.y - forehead.y) / (chin.y - forehead.y);
-
-            // thresholds
-            const CENTER_X = 0.5, CENTER_Y = 0.5;
-            const TOL = 0.15;
-
-            if (movementState === 'center') {
-                if (instr.textContent !== 'มองตรงที่หน้าจอ') {
-                    instr.textContent = 'มองตรงที่หน้าจอ';
-                    speak('กรุณามองตรงที่หน้าจอค่ะ');
-                }
-                if (Math.abs(horizontalRatio - CENTER_X) < TOL && Math.abs(verticalRatio - CENTER_Y) < TOL) {
-                    allPosesLandmarks.center = JSON.parse(JSON.stringify(landmarks));
-
-                    // Capture photo for the center pose
-                    const video = document.getElementById('faceVideo');
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 400;
-                    canvas.height = (video.videoHeight / video.videoWidth) * 400;
-                    const cctx = canvas.getContext('2d');
-                    cctx.translate(canvas.width, 0);
-                    cctx.scale(-1, 1);
-                    cctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    capturedCenterPhoto = canvas.toDataURL('image/jpeg', 0.6);
-
-                    movementsCompleted.center = true;
-                    movementState = 'left';
-                    updateProgressDots();
-                }
-            } else if (movementState === 'left') {
-                if (instr.textContent !== 'หันหน้าไปทางซ้าย ⬅️') {
-                    instr.textContent = 'หันหน้าไปทางซ้าย ⬅️';
-                    speak('กรุณาหันหน้าไปทางซ้ายค่ะ');
-                }
-                if (horizontalRatio < 0.35) {
-                    allPosesLandmarks.left = JSON.parse(JSON.stringify(landmarks));
-                    movementsCompleted.left = true;
-                    movementState = 'right';
-                    updateProgressDots();
-                }
-            } else if (movementState === 'right') {
-                if (instr.textContent !== 'หันหน้าไปทางขวา ➡️') {
-                    instr.textContent = 'หันหน้าไปทางขวา ➡️';
-                    speak('กรุณาหันหน้าไปทางขวาค่ะ');
-                }
-                if (horizontalRatio > 0.65) {
-                    allPosesLandmarks.right = JSON.parse(JSON.stringify(landmarks));
-                    movementsCompleted.right = true;
-                    movementState = 'up';
-                    updateProgressDots();
-                }
-            } else if (movementState === 'up') {
-                if (instr.textContent !== 'เงยหน้าขึ้น ⬆️') {
-                    instr.textContent = 'เงยหน้าขึ้น ⬆️';
-                    speak('กรุณาเงยหน้าขึ้นค่ะ');
-                }
-                if (verticalRatio < 0.35) {
-                    allPosesLandmarks.up = JSON.parse(JSON.stringify(landmarks));
-                    movementsCompleted.up = true;
-                    movementState = 'down';
-                    updateProgressDots();
-                }
-            } else if (movementState === 'down') {
-                if (instr.textContent !== 'ก้มหน้าลง ⬇️') {
-                    instr.textContent = 'ก้มหน้าลง ⬇️';
-                    speak('กรุณาก้มหน้าลงค่ะ');
-                }
-                if (verticalRatio > 0.65) {
-                    allPosesLandmarks.down = JSON.parse(JSON.stringify(landmarks));
-                    movementsCompleted.down = true;
-                    movementState = 'done';
-                    updateProgressDots();
-                }
-            } else if (movementState === 'done') {
-                if (instr.textContent !== '✅ เรียบร้อย! ตรวจสอบใบหน้า...') {
-                    instr.textContent = '✅ เรียบร้อย! ตรวจสอบใบหน้า...';
-                    speak('ขอบคุณค่ะ ตรวจสอบใบหน้าเรียบร้อยแล้วค่ะ');
-                }
-                setTimeout(() => {
-                    if (!isCapturing) {
-                        isCapturing = true;
-                        captureFace();
-                    }
-                }, 500);
-            }
-        }
-
-        function updateProgressDots() {
-            Object.keys(movementsCompleted).forEach(key => {
-                const el = document.getElementById('dot-' + key);
-                if (movementsCompleted[key]) el.classList.add('done');
-            });
-        }
 
         function startFaceScanning() {
             if (isFirstTimeScan) {
-                document.getElementById('captureBtn').style.display = 'none'; // Auto-trigger after movements
-                showToast('💡 ลงทะเบียนครั้งแรก: กรุณาขยับศีรษะตามคำแนะนำบนจอ', 'info');
+                document.getElementById('captureBtn').style.display = 'block';
+                showToast('💡 ลงทะเบียนครั้งแรก: กรุณามองที่กล้องนิ่งๆ', 'info');
             } else {
                 showToast('🔍 กำลังตรวจสอบใบหน้าด้วย MediaPipe...', 'info');
             }
@@ -1384,13 +1199,11 @@
             const isFirstTime = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null' || currentUser.faceDescriptor === 'undefined';
 
             if (isFirstTime) {
-                const confirm_ = confirm('📸 ยืนยันการลงทะเบียนใบหน้าใหม่ด้วยระบบ MediaPipe (บันทึกครบทุกมุมมอง)?');
+                const confirm_ = confirm('📸 ยืนยันการลงทะเบียนใบหน้าใหม่ด้วยระบบ MediaPipe?');
                 if (!confirm_) { isCapturing = false; detectionCount = 0; return; }
 
                 showToast('⏳ กำลังลงทะเบียน...', 'info');
-                // Store all available poses as an array
-                const descArr = Object.values(allPosesLandmarks);
-                if (descArr.length === 0) descArr.push(currentDetection);
+                const descArr = currentDetection;
 
                 await api('', 'POST', {
                     action: 'saveUser',
@@ -1453,20 +1266,15 @@
                 }
             }
 
-            // Capture photo for record (if not already captured in center pose)
-            if (isFirstTimeScan && capturedCenterPhoto) {
-                photoDataUrl = capturedCenterPhoto;
-            } else {
-                const video = document.getElementById('faceVideo');
-                const canvas = document.createElement('canvas');
-                canvas.width = 400;
-                canvas.height = (video.videoHeight / video.videoWidth) * 400;
-                const ctx = canvas.getContext('2d');
-                ctx.translate(canvas.width, 0);
-                ctx.scale(-1, 1);
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                photoDataUrl = canvas.toDataURL('image/jpeg', 0.5);
-            }
+            const video = document.getElementById('faceVideo');
+            const canvas = document.createElement('canvas');
+            canvas.width = 400;
+            canvas.height = (video.videoHeight / video.videoWidth) * 400;
+            const ctx = canvas.getContext('2d');
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            photoDataUrl = canvas.toDataURL('image/jpeg', 0.5);
 
             // Stop camera
             cancelAnimationFrame(faceDetectionLoop);
