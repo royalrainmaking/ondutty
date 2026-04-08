@@ -1028,6 +1028,7 @@
         let movementsCompleted = { center: false, left: false, right: false, up: false, down: false };
         let isFirstTimeScan = false;
         let allPosesLandmarks = {}; // Store all 5 poses {center, left, right, up, down}
+        let capturedCenterPhoto = null; // Store for final display/record
 
         async function loadFaceModels() {
             const statusEl = document.getElementById('faceStatus');
@@ -1243,6 +1244,18 @@
                 }
                 if (Math.abs(horizontalRatio - CENTER_X) < TOL && Math.abs(verticalRatio - CENTER_Y) < TOL) {
                     allPosesLandmarks.center = JSON.parse(JSON.stringify(landmarks));
+
+                    // Capture photo for the center pose
+                    const video = document.getElementById('faceVideo');
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 400;
+                    canvas.height = (video.videoHeight / video.videoWidth) * 400;
+                    const cctx = canvas.getContext('2d');
+                    cctx.translate(canvas.width, 0);
+                    cctx.scale(-1, 1);
+                    cctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    capturedCenterPhoto = canvas.toDataURL('image/jpeg', 0.6);
+
                     movementsCompleted.center = true;
                     movementState = 'left';
                     updateProgressDots();
@@ -1440,16 +1453,20 @@
                 }
             }
 
-            // Capture photo for record
-            const video = document.getElementById('faceVideo');
-            const canvas = document.createElement('canvas');
-            canvas.width = 400;
-            canvas.height = (video.videoHeight / video.videoWidth) * 400;
-            const ctx = canvas.getContext('2d');
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            photoDataUrl = canvas.toDataURL('image/jpeg', 0.5);
+            // Capture photo for record (if not already captured in center pose)
+            if (isFirstTimeScan && capturedCenterPhoto) {
+                photoDataUrl = capturedCenterPhoto;
+            } else {
+                const video = document.getElementById('faceVideo');
+                const canvas = document.createElement('canvas');
+                canvas.width = 400;
+                canvas.height = (video.videoHeight / video.videoWidth) * 400;
+                const ctx = canvas.getContext('2d');
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                photoDataUrl = canvas.toDataURL('image/jpeg', 0.5);
+            }
 
             // Stop camera
             cancelAnimationFrame(faceDetectionLoop);
@@ -1485,6 +1502,7 @@
             document.getElementById('movementProgress').style.display = 'none';
             movementState = 'idle';
             allPosesLandmarks = {};
+            capturedCenterPhoto = null;
             if (faceStream) faceStream.getTracks().forEach(t => t.stop());
             validateSteps();
         }
