@@ -1027,6 +1027,7 @@
         let movementState = 'idle'; // 'countdown', 'center', 'left', 'right', 'up', 'down', 'done'
         let movementsCompleted = { center: false, left: false, right: false, up: false, down: false };
         let isFirstTimeScan = false;
+        let allPosesLandmarks = {}; // Store all 5 poses {center, left, right, up, down}
 
         async function loadFaceModels() {
             const statusEl = document.getElementById('faceStatus');
@@ -1241,6 +1242,7 @@
                     speak('กรุณามองตรงที่หน้าจอค่ะ');
                 }
                 if (Math.abs(horizontalRatio - CENTER_X) < TOL && Math.abs(verticalRatio - CENTER_Y) < TOL) {
+                    allPosesLandmarks.center = JSON.parse(JSON.stringify(landmarks));
                     movementsCompleted.center = true;
                     movementState = 'left';
                     updateProgressDots();
@@ -1251,6 +1253,7 @@
                     speak('กรุณาหันหน้าไปทางซ้ายค่ะ');
                 }
                 if (horizontalRatio < 0.35) {
+                    allPosesLandmarks.left = JSON.parse(JSON.stringify(landmarks));
                     movementsCompleted.left = true;
                     movementState = 'right';
                     updateProgressDots();
@@ -1261,6 +1264,7 @@
                     speak('กรุณาหันหน้าไปทางขวาค่ะ');
                 }
                 if (horizontalRatio > 0.65) {
+                    allPosesLandmarks.right = JSON.parse(JSON.stringify(landmarks));
                     movementsCompleted.right = true;
                     movementState = 'up';
                     updateProgressDots();
@@ -1271,6 +1275,7 @@
                     speak('กรุณาเงยหน้าขึ้นค่ะ');
                 }
                 if (verticalRatio < 0.35) {
+                    allPosesLandmarks.up = JSON.parse(JSON.stringify(landmarks));
                     movementsCompleted.up = true;
                     movementState = 'down';
                     updateProgressDots();
@@ -1281,6 +1286,7 @@
                     speak('กรุณาก้มหน้าลงค่ะ');
                 }
                 if (verticalRatio > 0.65) {
+                    allPosesLandmarks.down = JSON.parse(JSON.stringify(landmarks));
                     movementsCompleted.down = true;
                     movementState = 'done';
                     updateProgressDots();
@@ -1365,11 +1371,14 @@
             const isFirstTime = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null' || currentUser.faceDescriptor === 'undefined';
 
             if (isFirstTime) {
-                const confirm_ = confirm('📸 ยืนยันการลงทะเบียนใบหน้าใหม่ด้วยระบบ MediaPipe?');
+                const confirm_ = confirm('📸 ยืนยันการลงทะเบียนใบหน้าใหม่ด้วยระบบ MediaPipe (บันทึกครบทุกมุมมอง)?');
                 if (!confirm_) { isCapturing = false; detectionCount = 0; return; }
 
                 showToast('⏳ กำลังลงทะเบียน...', 'info');
-                const descArr = currentDetection; // Store landmarks as descriptor
+                // Store all available poses as an array
+                const descArr = Object.values(allPosesLandmarks);
+                if (descArr.length === 0) descArr.push(currentDetection);
+
                 await api('', 'POST', {
                     action: 'saveUser',
                     id: currentUser.id, phone: currentUser.phone, name: currentUser.name,
@@ -1390,17 +1399,29 @@
 
             } else {
                 try {
-                    const storedLandmarks = JSON.parse(currentUser.faceDescriptor);
-                    const distance = calculateSimilarity(currentDetection, storedLandmarks);
+                    const storedData = JSON.parse(currentUser.faceDescriptor);
+                    let minDistance = 999;
 
-                    if (distance > FACE_THRESHOLD) {
+                    // Handle both single pose (old) and multi-pose (new)
+                    if (Array.isArray(storedData) && Array.isArray(storedData[0])) {
+                        // Multi-pose: check against all stored poses and pick the best match
+                        storedData.forEach(pose => {
+                            const d = calculateSimilarity(currentDetection, pose);
+                            if (d < minDistance) minDistance = d;
+                        });
+                    } else {
+                        // Single pose (backward compatibility)
+                        minDistance = calculateSimilarity(currentDetection, storedData);
+                    }
+
+                    if (minDistance > FACE_THRESHOLD) {
                         faceVerified = false;
                         overlay.innerHTML = '❌';
                         overlay.classList.add('fail', 'show');
                         imgEl.style.borderColor = '#ef4444';
 
                         setTimeout(() => {
-                            alert(`❌ ตรวจสอบไม่ผ่าน (Error: ${distance.toFixed(4)})\nกรุณาลงทะเบียนใบหน้าใหม่หากรูปลักษณ์เปลี่ยนไป`);
+                            alert(`❌ ตรวจสอบไม่ผ่าน (Error: ${minDistance.toFixed(4)})\nกรุณาลงทะเบียนใบหน้าใหม่หากรูปลักษณ์เปลี่ยนไป`);
                             logout();
                         }, 800);
                         return;
@@ -1463,6 +1484,7 @@
             document.getElementById('movementInstruction').style.display = 'none';
             document.getElementById('movementProgress').style.display = 'none';
             movementState = 'idle';
+            allPosesLandmarks = {};
             if (faceStream) faceStream.getTracks().forEach(t => t.stop());
             validateSteps();
         }
