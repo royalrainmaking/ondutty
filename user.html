@@ -1061,7 +1061,6 @@
         }
 
         function startFaceScanning() {
-            document.getElementById('startScanBtn').style.display = 'none';
             const isFirst = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null';
             if (isFirst) {
                 document.getElementById('captureBtn').style.display = 'block';
@@ -1202,7 +1201,6 @@
             document.getElementById('resultOverlay').innerHTML = '';
             document.getElementById('capturedImg').style.borderColor = '#e2e8f0';
             document.getElementById('faceCaptured').style.display = 'none';
-            document.getElementById('startScanBtn').style.display = 'none';
             document.getElementById('captureBtn').style.display = 'none';
             document.getElementById('faceScannerFlow').style.display = 'none';
             document.getElementById('btnOpenCamera').style.display = 'block';
