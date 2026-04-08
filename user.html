@@ -961,7 +961,7 @@
         let isCapturing = false;      // guard
         let faceVerified = false;     // SUCCESS/FAIL flag
         let faceDetected = false;     // is face currently in frame
-        const FACE_THRESHOLD = 0.08;   // เข้มงวดขึ้น (Stricter threshold for normalized landmarks)
+        const FACE_THRESHOLD = 0.10;   // ผ่อนปรนขึ้นเล็กน้อย (Relaxed threshold for better user experience)
 
         async function loadFaceModels() {
             const statusEl = document.getElementById('faceStatus');
@@ -1035,12 +1035,20 @@
             }
         }
 
+        let matchingStartTime = 0;
         function runFaceDetectionLoop() {
             const video = document.getElementById('faceVideo');
             const overlay = document.getElementById('faceOverlay');
             const ctx = overlay.getContext('2d');
-            const box = document.getElementById('faceBox');
             const badge = document.getElementById('faceDetectedBadge');
+
+            const isFirst = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null' || currentUser.faceDescriptor === 'undefined';
+            let storedLandmarks = null;
+            if (!isFirst) {
+                try { storedLandmarks = JSON.parse(currentUser.faceDescriptor); } catch (e) { }
+            }
+
+            matchingStartTime = Date.now();
 
             const render = async () => {
                 if (video.readyState < 2 || isCapturing) {
@@ -1062,24 +1070,53 @@
                         detectionCount++;
 
                         // Draw Landmarks (Dots)
-                        ctx.fillStyle = '#10b981';
-                        // Draw only key points for performance
-                        for (let i = 0; i < landmarks.length; i += 5) {
+                        ctx.fillStyle = isFirst ? '#10b981' : '#6366f1';
+                        for (let i = 0; i < landmarks.length; i += 10) {
                             const pt = landmarks[i];
                             ctx.beginPath();
                             ctx.arc(pt.x * overlay.width, pt.y * overlay.height, 2, 0, Math.PI * 2);
                             ctx.fill();
                         }
 
-                        // Update Badge
-                        badge.style.display = 'block';
-                        badge.textContent = `✅ ตรวจสอบใบหน้า... (${Math.min(100, Math.round(detectionCount / 15 * 100))}%)`;
-                        badge.style.background = '#10b981';
+                        if (isFirst) {
+                            // First time: Wait for stable face for ~1 second
+                            badge.style.display = 'block';
+                            badge.textContent = `✅ กำลังจัดท่าทาง... (${Math.min(100, Math.round(detectionCount / 15 * 100))}%)`;
+                            badge.style.background = '#10b981';
 
-                        // Auto capture after ~1 second (15 frames)
-                        if (detectionCount >= 15) {
-                            isCapturing = true;
-                            captureFace();
+                            if (detectionCount >= 15) {
+                                isCapturing = true;
+                                captureFace();
+                            }
+                        } else {
+                            // Recognition mode: Real-time comparison
+                            const distance = calculateSimilarity(landmarks, storedLandmarks);
+                            badge.style.display = 'block';
+
+                            const matchPercent = Math.max(0, Math.min(100, Math.round((1 - distance) * 100)));
+                            badge.textContent = `🔍 ตรวจสอบใบหน้า: ${matchPercent}%`;
+
+                            if (distance <= FACE_THRESHOLD) {
+                                // Match found!
+                                badge.style.background = '#22c55e';
+                                badge.textContent = '✅ ยืนยันตัวตนสำเร็จ!';
+                                if (detectionCount > 5) { // Ensure at least 5 frames of tracking
+                                    isCapturing = true;
+                                    captureFace(distance);
+                                }
+                            } else {
+                                badge.style.background = '#f59e0b';
+                                // Timeout after 10 seconds of active searching without match
+                                if (Date.now() - matchingStartTime > 10000) {
+                                    isCapturing = true;
+                                    showToast('❌ ไม่สามารถยืนยันตัวตนได้ในตอนนี้', 'error');
+                                    setTimeout(() => {
+                                        alert(`❌ ตรวจสอบไม่ผ่าน (Error: ${distance.toFixed(4)})\nกรุณามองกล้องตรงใบหน้าเดิมที่ลงทะเบียนไว้ หรือติดต่อผู้ดูแลครับ`);
+                                        logout();
+                                    }, 500);
+                                    return;
+                                }
+                            }
                         }
                         document.getElementById('faceGuide').classList.add('detected');
                     } else {
@@ -1088,6 +1125,9 @@
                         detectionCount = 0;
                         badge.style.display = 'none';
                         document.getElementById('faceGuide').classList.remove('detected');
+
+                        // Reset timeout if face leaves frame, so user can try again easily
+                        // matchingStartTime = Date.now(); // Optional: reset or keep counting?
                     }
                 }
                 faceDetectionLoop = requestAnimationFrame(render);
@@ -1151,7 +1191,7 @@
             return Math.sqrt(sumSq) / Math.sqrt(v1.length);
         }
 
-        async function captureFace() {
+        async function captureFace(preComputedDistance = null) {
             if (!faceDetected || !currentDetection) {
                 showToast('⚠️ ยังไม่พบใบหน้า กรุณามองตรงมาที่กล้อง', 'warning');
                 isCapturing = false;
@@ -1197,8 +1237,7 @@
 
             } else {
                 try {
-                    const storedLandmarks = JSON.parse(currentUser.faceDescriptor);
-                    const distance = calculateSimilarity(currentDetection, storedLandmarks);
+                    const distance = preComputedDistance !== null ? preComputedDistance : calculateSimilarity(currentDetection, JSON.parse(currentUser.faceDescriptor));
 
                     if (distance > FACE_THRESHOLD) {
                         faceVerified = false;
