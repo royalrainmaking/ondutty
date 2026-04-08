@@ -961,7 +961,7 @@
         let isCapturing = false;      // guard
         let faceVerified = false;     // SUCCESS/FAIL flag
         let faceDetected = false;     // is face currently in frame
-        const FACE_THRESHOLD = 0.075;   // กลับมาใช้ค่าที่เข้มงวดขึ้น เพื่อป้องกันคนอื่นสแกนแทน (Security focus)
+        const FACE_THRESHOLD = 0.045;   // เข้มงวดสูงสุด เพื่อป้องกันบุคคลอื่น (Extreme Security)
 
         async function loadFaceModels() {
             const statusEl = document.getElementById('faceStatus');
@@ -1082,7 +1082,7 @@
                         else if (distance <= FACE_THRESHOLD + 0.02) ctx.fillStyle = '#f59e0b';
                         else ctx.fillStyle = '#6366f1';
 
-                        for (let i = 0; i < landmarks.length; i += 10) {
+                        for (let i = 0; i < landmarks.length; i += 15) {
                             const pt = landmarks[i];
                             ctx.beginPath();
                             ctx.arc(pt.x * overlay.width, pt.y * overlay.height, 2, 0, Math.PI * 2);
@@ -1090,7 +1090,6 @@
                         }
 
                         if (isFirst) {
-                            // First time: Wait for stable face for ~1 second
                             badge.style.display = 'block';
                             badge.textContent = `✅ กำลังจัดท่าทาง... (${Math.min(100, Math.round(detectionCount / 15 * 100))}%)`;
                             badge.style.background = '#10b981';
@@ -1100,29 +1099,24 @@
                                 captureFace();
                             }
                         } else {
-                            // Recognition mode: Real-time comparison
                             badge.style.display = 'block';
-
-                            // ปรับสูตร % ให้ตรงกับความรู้สึก (ขยับใกล้ 100% เมื่อเข้าใกล้เกณฑ์)
-                            const matchPercent = Math.max(0, Math.min(100, Math.round((1 - (distance / 0.15)) * 100)));
-                            badge.textContent = `🔍 ตรวจสอบใบหน้า: ${matchPercent}%`;
+                            const matchPercent = Math.max(0, Math.min(100, Math.round((1 - (distance / 0.10)) * 100)));
+                            badge.textContent = `🔍 ตรวจสอบใบหน้า: ${matchPercent}% (${distance.toFixed(4)})`;
 
                             if (distance <= FACE_THRESHOLD) {
-                                // Match found!
                                 badge.style.background = '#22c55e';
-                                badge.textContent = '✅ ยืนยันตัวตนสำเร็จ!';
-                                if (detectionCount > 5) { // Ensure at least 5 frames of tracking
+                                badge.textContent = `✅ ผ่าน! (${distance.toFixed(4)})`;
+                                if (detectionCount > 3) {
                                     isCapturing = true;
                                     captureFace(distance);
                                 }
                             } else {
-                                badge.style.background = '#f59e0b';
-                                // Timeout after 12 seconds of active searching without match
-                                if (Date.now() - matchingStartTime > 12000) {
+                                badge.style.background = distance < 0.08 ? '#f59e0b' : '#ef4444';
+                                if (Date.now() - matchingStartTime > 15000) {
                                     isCapturing = true;
                                     showToast('❌ ยืนยันตัวตนไม่สำเร็จในตอนนี้', 'error');
                                     setTimeout(() => {
-                                        alert(`❌ ยืนยันตัวตนไม่สำเร็จ\nกรุณามองกล้องตรงให้นิ่งที่สุด หรือลงทะเบียนใบหน้าใหม่หากมีการเปลี่ยนแปลงครับ`);
+                                        alert(`❌ ยืนยันตัวตนไม่สำเร็จ\nกรุณามุมกล้องให้ตรงให้นิ่งที่สุดครับ`);
                                         logout();
                                     }, 500);
                                     return;
@@ -1173,24 +1167,36 @@
 
         // Helper to calculate similarity with Normalization (Centering & Scaling)
         function calculateSimilarity(landmarks1, landmarks2) {
+            function getDistance(p1, p2) {
+                return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2) + Math.pow(p1.z - p2.z, 2));
+            }
+
             function normalize(lm) {
-                // 1. Find Center (Average of all points)
-                const cx = lm.reduce((s, p) => s + p.x, 0) / lm.length;
-                const cy = lm.reduce((s, p) => s + p.y, 0) / lm.length;
-                const cz = lm.reduce((s, p) => s + p.z, 0) / lm.length;
+                // Indices for left eye outer (33) and right eye outer (263) in MediaPipe
+                try {
+                    const pL = lm[33];
+                    const pR = lm[263];
+                    const eyeDist = getDistance(pL, pR) || 0.1;
 
-                // 2. Center and calculate Scale (Avg distance from center)
-                let centered = lm.map(p => ({ x: p.x - cx, y: p.y - cy, z: p.z - cz }));
-                let avgDist = centered.reduce((s, p) => s + Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z), 0) / lm.length;
+                    // 1. Center (Midpoint between eyes)
+                    const cx = (pL.x + pR.x) / 2;
+                    const cy = (pL.y + pR.y) / 2;
+                    const cz = (pL.z + pR.z) / 2;
 
-                // 3. Scale to unit size
-                return centered.flatMap(p => [p.x / avgDist, p.y / avgDist, p.z / avgDist]);
+                    // 2. Scale by Eye Distance (more robust)
+                    return lm.flatMap(p => [
+                        (p.x - cx) / eyeDist,
+                        (p.y - cy) / eyeDist,
+                        (p.z - cz) / eyeDist
+                    ]);
+                } catch (e) {
+                    return lm.flatMap(p => [p.x, p.y, p.z]);
+                }
             }
 
             const v1 = normalize(landmarks1);
             const v2 = normalize(landmarks2);
 
-            // Euclidean Distance on normalized coordinates
             let sumSq = 0;
             for (let i = 0; i < v1.length; i++) {
                 let diff = v1[i] - v2[i];
