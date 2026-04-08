@@ -925,7 +925,7 @@
         let isCapturing = false;      // guard
         let faceVerified = false;     // SUCCESS/FAIL flag
         let faceDetected = false;     // is face currently in frame
-        const FACE_THRESHOLD = 0.25;   // Similarity threshold for Landmarks
+        const FACE_THRESHOLD = 0.08;   // เข้มงวดขึ้น (Stricter threshold for normalized landmarks)
 
         async function loadFaceModels() {
             const statusEl = document.getElementById('faceStatus');
@@ -1071,24 +1071,32 @@
             runFaceDetectionLoop();
         }
 
-        // Helper to calculate similarity (Cosine Similarity on Landmarks)
+        // Helper to calculate similarity with Normalization (Centering & Scaling)
         function calculateSimilarity(landmarks1, landmarks2) {
-            // Flatten landmarks to simple array of x,y,z
-            const v1 = landmarks1.flatMap(p => [p.x, p.y, p.z]);
-            const v2 = landmarks2.flatMap(p => [p.x, p.y, p.z]);
+            function normalize(lm) {
+                // 1. Find Center (Average of all points)
+                const cx = lm.reduce((s, p) => s + p.x, 0) / lm.length;
+                const cy = lm.reduce((s, p) => s + p.y, 0) / lm.length;
+                const cz = lm.reduce((s, p) => s + p.z, 0) / lm.length;
 
-            let dotProduct = 0;
-            let mA = 0;
-            let mB = 0;
-            for (let i = 0; i < v1.length; i++) {
-                dotProduct += (v1[i] * v2[i]);
-                mA += (v1[i] * v1[i]);
-                mB += (v2[i] * v2[i]);
+                // 2. Center and calculate Scale (Avg distance from center)
+                let centered = lm.map(p => ({ x: p.x - cx, y: p.y - cy, z: p.z - cz }));
+                let avgDist = centered.reduce((s, p) => s + Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z), 0) / lm.length;
+
+                // 3. Scale to unit size
+                return centered.flatMap(p => [p.x / avgDist, p.y / avgDist, p.z / avgDist]);
             }
-            mA = Math.sqrt(mA);
-            mB = Math.sqrt(mB);
-            const similarity = dotProduct / (mA * mB);
-            return 1 - similarity; // Lower is better (distance-like)
+
+            const v1 = normalize(landmarks1);
+            const v2 = normalize(landmarks2);
+
+            // Euclidean Distance on normalized coordinates
+            let sumSq = 0;
+            for (let i = 0; i < v1.length; i++) {
+                let diff = v1[i] - v2[i];
+                sumSq += diff * diff;
+            }
+            return Math.sqrt(sumSq) / Math.sqrt(v1.length);
         }
 
         async function captureFace() {
