@@ -1091,10 +1091,9 @@
 
         function startFaceScanning() {
             document.getElementById('startScanBtn').style.display = 'none';
-            const isFirst = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null';
+            const isFirst = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null' || currentUser.faceDescriptor === 'undefined';
             if (isFirst) {
-                document.getElementById('captureBtn').style.display = 'block';
-                showToast('💡 ครั้งแรก: มองที่กล้องแล้วกด "บันทึกภาพใบหน้า"', 'info');
+                showToast('💡 กำลังเตรียมบันทึกใบหน้าใหม่โดยอัตโนมัติ...', 'info');
             } else {
                 showToast('🔍 กำลังตรวจสอบใบหน้า...', 'info');
             }
@@ -1107,27 +1106,62 @@
                 return;
             }
 
-            const descriptor = currentDetection.descriptor; // Float32Array 128 values
+            // ===== 1. Capture photo FIRST with Resizing & Compression =====
+            const video = document.getElementById('faceVideo');
+            if (video.videoWidth === 0 || video.videoHeight === 0) {
+                showToast('❌ กล้องยังไม่พร้อม กรุณารอสักครู่', 'error');
+                return;
+            }
+
+            const MAX_WIDTH = 400;
+            let targetWidth = video.videoWidth;
+            let targetHeight = video.videoHeight;
+            if (targetWidth > MAX_WIDTH) {
+                const ratio = MAX_WIDTH / targetWidth;
+                targetWidth = MAX_WIDTH;
+                targetHeight = video.videoHeight * ratio;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            if (isCanvasBlank(canvas)) {
+                showToast('❌ ไม่สามารถบันทึกภาพได้ กรุณาลองใหม่', 'error');
+                retakeFace();
+                return;
+            }
+
+            photoDataUrl = canvas.toDataURL('image/jpeg', 0.5);
+            if (photoDataUrl.length > 48000) photoDataUrl = canvas.toDataURL('image/jpeg', 0.3);
+
+            if (photoDataUrl === 'data:,' || photoDataUrl.length < 500) {
+                photoDataUrl = null;
+                showToast('❌ ตรวจสอบใบหน้าไม่สำเร็จ (รูปมีปัญหา) กรุณาสแกนใหม่', 'error');
+                retakeFace();
+                return;
+            }
+
+            // ===== 2. Process Verification / Registration =====
+            const descriptor = currentDetection.descriptor;
             showToast('⏳ กำลังประมวลผล...', 'info');
-            document.getElementById('actionBtnGroup').style.display = 'none'; // Force hide during proc
+            document.getElementById('actionBtnGroup').style.display = 'none';
 
             const resEl = document.getElementById('faceResultMsg');
             const overlay = document.getElementById('resultOverlay');
             const imgEl = document.getElementById('capturedImg');
 
-            // Reset overlay
             overlay.className = 'result-overlay';
             overlay.innerHTML = '';
             overlay.classList.remove('show');
 
-            // Case 1: Registration (First time) - Proceed automatically to attendance
             const isFirstTime = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null' || currentUser.faceDescriptor === 'undefined';
 
             if (isFirstTime) {
-                // Remove confirm as per user request "ไม่ต้องถาม"
-                // const confirm_ = confirm('📸 นี่คือการลงทะเบียนใบหน้าครั้งแรก\nระบบจะบันทึกใบหน้าของคุณไว้สำหรับยืนยันตัวตน\nยืนยันหรือไม่?');
-                // if (!confirm_) { isCapturing = false; detectionCount = 0; return; }
-
                 showToast('⏳ กำลังลงทะเบียน...', 'info');
                 const descArr = Array.from(descriptor);
                 await api('', 'POST', {
@@ -1142,7 +1176,6 @@
                 currentUser.faceDescriptor = JSON.stringify(descArr);
                 sessionStorage.setItem('wfh_current', JSON.stringify(currentUser));
                 faceVerified = true;
-                photoDataUrl = canvas.toDataURL('image/jpeg', 0.5); // Ensure photo is set
 
                 resEl.style.color = '#10b981';
                 resEl.textContent = '✅ ลงทะเบียนสำเร็จ (กำลังลงเวลา...)';
@@ -1150,13 +1183,11 @@
                 overlay.classList.add('success', 'show');
                 imgEl.style.borderColor = '#10b981';
 
-                // AUTO-PROCEED to check-in/out
                 setTimeout(() => {
                     if (!isCurrentlyIn) doCheckIn();
                     else doCheckOut();
                 }, 1000);
 
-                // Case 2: Verification (Existing user)
             } else {
                 const storedArr = JSON.parse(currentUser.faceDescriptor);
                 const storedDesc = new Float32Array(storedArr);
@@ -1165,20 +1196,14 @@
                 if (distance > FACE_THRESHOLD) {
                     faceVerified = false;
                     photoDataUrl = null;
-                    document.getElementById('actionBtnGroup').style.display = 'none';
-
-                    // Show cross on image
                     overlay.innerHTML = '❌';
                     overlay.classList.add('fail', 'show');
                     imgEl.style.borderColor = '#ef4444';
 
                     setTimeout(() => {
-                        const wantReset = confirm(`❌ ใบหน้าไม่ถูกต้อง (ระยะ: ${distance.toFixed(2)})\n\nหากคุณคือเจ้าของบัญชีตัวจริงและต้องการลงทะเบียนใบหน้าใหม่เพื่ออัปเดตข้อมูล กด "ตกลง"\n(หากไม่ใช่ ระบบจะออกจากระบบเพื่อความปลอดภัย)`);
-                        if (wantReset) {
-                            resetFaceData(true); // true = auto/silent
-                        } else {
-                            logout();
-                        }
+                        const wantReset = confirm(`❌ ใบหน้าไม่ถูกต้อง (ระยะ: ${distance.toFixed(2)})\n\nหากคุณคือเจ้าของบัญชีตัวจริงและต้องการลงทะเบียนใบหน้าใหม่เพื่ออัปเดตข้อมูล กด "ตกลง"`);
+                        if (wantReset) resetFaceData(true);
+                        else logout();
                     }, 500);
                     return;
                 } else {
@@ -1188,12 +1213,10 @@
                     document.getElementById('btnTryAgain').style.display = 'none';
                     showToast('✅ ตรวจสอบใบหน้าผ่าน', 'success');
 
-                    // Show checkmark on image
                     overlay.innerHTML = '✔️';
                     overlay.classList.add('success', 'show');
                     imgEl.style.borderColor = '#10b981';
 
-                    // AUTO-SUBMIT for existing users too
                     setTimeout(() => {
                         if (!isCurrentlyIn) doCheckIn();
                         else doCheckOut();
@@ -1201,62 +1224,7 @@
                 }
             }
 
-            // ===== Capture photo with Resizing & Compression =====
-            const video = document.getElementById('faceVideo');
-
-            if (video.videoWidth === 0 || video.videoHeight === 0) {
-                showToast('❌ กล้องยังไม่พร้อม กรุณารอสักครู่', 'error');
-                isCapturing = false;
-                detectionCount = 0;
-                return;
-            }
-
-            // Calculate resized dimensions (Max width 400px to stay under Sheets 50k char limit)
-            const MAX_WIDTH = 400;
-            let targetWidth = video.videoWidth;
-            let targetHeight = video.videoHeight;
-
-            if (targetWidth > MAX_WIDTH) {
-                const ratio = MAX_WIDTH / targetWidth;
-                targetWidth = MAX_WIDTH;
-                targetHeight = video.videoHeight * ratio;
-            }
-
-            const canvas = document.createElement('canvas');
-            canvas.width = targetWidth;
-            canvas.height = targetHeight;
-            const ctx = canvas.getContext('2d');
-
-            // Set mirror effect
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // Check if blank
-            if (isCanvasBlank(canvas)) {
-                showToast('❌ ไม่สามารถบันทึกภาพได้ กรุณาลองใหม่', 'error');
-                retakeFace();
-                return;
-            }
-
-            // Use JPEG with 0.5 quality for maximum compression
-            photoDataUrl = canvas.toDataURL('image/jpeg', 0.5);
-
-            // Final safety check for length (Google Sheets limit is 50,000)
-            if (photoDataUrl.length > 48000) {
-                // If still too large, try even lower quality
-                photoDataUrl = canvas.toDataURL('image/jpeg', 0.3);
-            }
-
-            if (photoDataUrl === 'data:,' || photoDataUrl.length < 500) {
-                photoDataUrl = null;
-                faceVerified = false;
-                showToast('❌ ตรวจสอบใบหน้าไม่สำเร็จ (รูปมีปัญหา) กรุณาสแกนใหม่', 'error');
-                retakeFace();
-                return;
-            }
-
-            // Stop camera
+            // ===== 3. Stop Camera & Show Results =====
             clearInterval(faceDetectionLoop);
             if (faceStream) faceStream.getTracks().forEach(t => t.stop());
 
@@ -1267,7 +1235,7 @@
 
             setTimeout(() => {
                 validateSteps();
-            }, 1000);
+            }, 500);
         }
 
         function retakeFace() {
