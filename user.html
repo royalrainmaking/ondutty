@@ -891,7 +891,7 @@
             if (String(currentUser.role).toLowerCase() === 'admin' || currentUser.id === 'admin') { window.location.href = 'admin.html'; return; }
             startClock(); getGPS();
             loadProfile();
-            loadTodayLogs();
+            window.logsPromise = loadTodayLogs();
             startFaceScanner();
         }
 
@@ -908,7 +908,7 @@
                 // Refresh status if date changes (Midnight) while the page is open
                 const checkToday = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
                 if (lastCheckedDate && lastCheckedDate !== checkToday) {
-                    loadTodayLogs();
+                    window.logsPromise = loadTodayLogs();
                 }
             }
             update(); setInterval(update, 1000);
@@ -1183,7 +1183,8 @@
                 overlay.classList.add('success', 'show');
                 imgEl.style.borderColor = '#10b981';
 
-                setTimeout(() => {
+                setTimeout(async () => {
+                    if (window.logsPromise) await window.logsPromise;
                     if (!isCurrentlyIn) doCheckIn();
                     else doCheckOut();
                 }, 1000);
@@ -1217,7 +1218,8 @@
                     overlay.classList.add('success', 'show');
                     imgEl.style.borderColor = '#10b981';
 
-                    setTimeout(() => {
+                    setTimeout(async () => {
+                        if (window.logsPromise) await window.logsPromise;
                         if (!isCurrentlyIn) doCheckIn();
                         else doCheckOut();
                     }, 1000);
