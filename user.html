@@ -1870,12 +1870,18 @@
             // ยังไม่ครบ — ซ่อน blocked message
             if (blockedEl) blockedEl.style.display = 'none';
 
-            // เปิด GPS + กล้องเพียงครั้งเดียว
-            if (!cameraStarted) {
-                cameraStarted = true;
-                getGPS();
-                startFaceScanner();
-            }
+            // รีเซ็ตข้อมูลการสแกนหน้าเดิม เพื่อบังคับให้ผู้ใช้กด "เปิดกล้องสแกน" ใหม่ทุกครั้งเมื่อเข้ามา
+            photoDataUrl = null;
+            faceVerified = false;
+            if (document.getElementById('faceCaptured')) document.getElementById('faceCaptured').style.display = 'none';
+            if (document.getElementById('faceScannerFlow')) document.getElementById('faceScannerFlow').style.display = 'none';
+            if (document.getElementById('btnOpenCamera')) document.getElementById('btnOpenCamera').style.display = 'block';
+
+            // โหลด GPS (ทำทุกครั้งที่เข้าหน้านี้)
+            getGPS();
+
+            // อัปเดต UI ให้กลับไปเป็นสถานะรอสแกนหน้า
+            validateSteps();
         }
 
         function validateSteps() {
