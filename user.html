@@ -698,33 +698,45 @@
         }
 
         .face-frame-guide {
-            width: 200px;
-            height: 260px;
-            border: 4px solid rgba(255, 255, 255, 0.7);
-            border-radius: 100px / 130px;
-            box-shadow: 0 0 0 1000px rgba(15, 23, 42, 0.5);
+            width: 220px;
+            height: 280px;
+            border: 4px solid #ef4444;
+            /* Default to red when scanning but not found */
+            border-radius: 110px / 140px;
+            box-shadow: 0 0 0 1000px rgba(15, 23, 42, 0.6);
             position: relative;
             transition: all 0.3s ease;
         }
 
-        .face-frame-guide::before {
-            content: "วางใบหน้าในกรอบ";
+        .face-guide-msg {
             position: absolute;
-            bottom: -40px;
+            bottom: -50px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.8);
+            background: rgba(15, 23, 42, 0.85);
             color: white;
-            padding: 4px 16px;
+            padding: 8px 20px;
             border-radius: 20px;
-            font-size: 14px;
+            font-size: 15px;
             white-space: nowrap;
-            font-weight: 500;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
         .face-frame-guide.detected {
             border-color: #22c55e;
-            box-shadow: 0 0 0 1000px rgba(34, 197, 94, 0.1), 0 0 0 1000px rgba(15, 23, 42, 0.4);
+            box-shadow: 0 0 0 1000px rgba(34, 197, 94, 0.15), 0 0 0 1000px rgba(15, 23, 42, 0.5);
+        }
+
+        .face-frame-guide.warning {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 1000px rgba(245, 158, 11, 0.1), 0 0 0 1000px rgba(15, 23, 42, 0.5);
+        }
+
+        .face-frame-guide.error {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 1000px rgba(239, 68, 68, 0.1), 0 0 0 1000px rgba(15, 23, 42, 0.5);
         }
     </style>
 </head>
@@ -777,10 +789,12 @@
                     <canvas id="faceOverlay"></canvas>
                     <div id="faceBox" class="face-box" style="display:none"></div>
                     <div id="faceDetectedBadge" class="face-detected-badge" style="display:none">✅ พบใบหน้า</div>
-                    
+
                     <!-- Face Frame Guide -->
                     <div class="face-frame-container">
-                        <div id="faceGuide" class="face-frame-guide"></div>
+                        <div id="faceGuide" class="face-frame-guide">
+                            <div id="faceGuideMsg" class="face-guide-msg">ขยับเข้าออกเพื่อสแกน</div>
+                        </div>
                     </div>
                 </div>
                 <div id="faceCaptured" style="display:none">
@@ -845,6 +859,15 @@
             </div>
             <div class="info-row"><span class="info-label">ตำแหน่ง</span><span class="info-value" id="pPos">-</span>
             </div>
+
+            <div class="profile-section-title" style="margin-top:24px; border-bottom-color: #ef4444">🔒 ความปลอดภัย
+            </div>
+            <div style="padding: 12px; background: #fff5f5; border-radius: 12px; border: 1px solid #fecaca;">
+                <p style="font-size: 13px; color: #dc2626; margin-bottom: 12px;">หากคุณต้องการสแกนใบหน้าใหม่
+                    คุณสามารถลบข้อมูลเดิมได้ที่นี่</p>
+                <button class="btn-clear" onclick="resetFaceData()"
+                    style="width: 100%; padding: 12px; font-weight: 700;">🗑️ ลบข้อมูลใบหน้าเดิม</button>
+            </div>
         </div>
     </div>
     </div>
@@ -907,10 +930,14 @@
                     validateSteps();
                     resolve({ lat: gpsLat, lng: gpsLng });
                 }, (err) => {
-                    alert('⚠️ กรุณาอนุญาตให้เข้าถึง GPS/ตำแหน่งที่ตั้ง เพื่อใช้งานระบบลงเวลางาน');
-                    logout();
+                    // Try to get GPS again or show error without blocking alert if desired, 
+                    // but keeping logic for now. Removing the alert to be "less asking"
+                    console.error('GPS Error:', err);
+                    document.getElementById('gpsStatus').textContent = '❌ กรุณาเปิด GPS/ตำแหน่งที่ตั้ง';
+                    // alert('⚠️ กรุณาอนุญาตให้เข้าถึง GPS/ตำแหน่งที่ตั้ง เพื่อใช้งานระบบลงเวลางาน');
+                    // logout();
                     reject(err);
-                }, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
+                }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
             });
         }
 
@@ -959,7 +986,12 @@
 
                 statusEl.style.display = 'none';
                 container.style.display = 'block';
-                document.getElementById('startScanBtn').style.display = 'block';
+                // document.getElementById('startScanBtn').style.display = 'block'; // Auto start instead
+
+                // Automate: Start scanning immediately
+                setTimeout(() => {
+                    startFaceScanning();
+                }, 500);
 
                 // reset loop vars
                 detectionCount = 0;
@@ -985,13 +1017,35 @@
                     .withFaceDescriptor();
 
                 ctx.clearRect(0, 0, overlay.width, overlay.height);
+                const guide = document.getElementById('faceGuide');
+                const guideMsg = document.getElementById('faceGuideMsg');
 
                 if (detection) {
                     faceDetected = true;
                     currentDetection = detection;
-                    detectionCount++;
+
                     const scaleX = overlay.width / video.videoWidth;
                     const scaleY = overlay.height / video.videoHeight;
+                    const det = detection.detection.box;
+
+                    // Distance logic based on face width
+                    const faceWidth = det.width;
+                    const tooClose = faceWidth > video.videoWidth * 0.75;
+                    const tooFar = faceWidth < video.videoWidth * 0.35;
+
+                    if (tooClose) {
+                        guide.className = 'face-frame-guide warning';
+                        guideMsg.textContent = '⚠️ หน้าใกล้เกินไป (ขยับออก)';
+                        detectionCount = 0; // reset progress
+                    } else if (tooFar) {
+                        guide.className = 'face-frame-guide warning';
+                        guideMsg.textContent = '⚠️ หน้าไกลเกินไป (ขยับเข้า)';
+                        detectionCount = 0; // reset progress
+                    } else {
+                        guide.className = 'face-frame-guide detected';
+                        guideMsg.textContent = '✅ กำลังสแกน... นิ่งไว้';
+                        detectionCount++;
+                    }
 
                     // Draw landmarks
                     ctx.fillStyle = '#10b981';
@@ -1001,8 +1055,7 @@
                         ctx.fill();
                     });
 
-                    // Bounding box
-                    const det = detection.detection.box;
+                    // Bounding box (smaller indicator)
                     const vRect = video.getBoundingClientRect();
                     const wScale = vRect.width / video.videoWidth;
                     const hScale = vRect.height / video.videoHeight;
@@ -1013,15 +1066,15 @@
                     box.style.height = (det.height * hScale) + 'px';
 
                     badge.style.display = 'block';
-                    badge.textContent = `✅ ตรวจสอบใบหน้า... (${Math.min(100, Math.round(detectionCount / 5 * 100))}%)`;
+                    badge.textContent = `✅ พร้อมสแกน (${Math.min(100, Math.round(detectionCount / 5 * 100))}%)`;
                     badge.style.background = '#10b981';
 
-                    // Auto capture after ~1 second (5 frames/intervals)
+                    // Auto capture after ~1 second (5 intervals) of "Correct distance" face
                     if (detectionCount >= 5) {
                         isCapturing = true;
                         captureFace();
+                        guideMsg.textContent = '🎉 ตรวจสอบสำเร็จ';
                     }
-                    document.getElementById('faceGuide').classList.add('detected');
                 } else {
                     faceDetected = false;
                     currentDetection = null;
@@ -1029,9 +1082,11 @@
                     box.style.display = 'none';
                     badge.style.display = 'none';
                     ctx.clearRect(0, 0, overlay.width, overlay.height);
-                    document.getElementById('faceGuide').classList.remove('detected');
+
+                    guide.className = 'face-frame-guide error';
+                    guideMsg.textContent = '❌ ขยับเข้าออกเพื่อสแกน';
                 }
-            }, 200);
+            }, 250);
         }
 
         function startFaceScanning() {
@@ -1067,10 +1122,11 @@
 
             // Case 1: Registration (First time) - Proceed automatically to attendance
             const isFirstTime = !currentUser.faceDescriptor || currentUser.faceDescriptor === '-' || currentUser.faceDescriptor === '' || currentUser.faceDescriptor === 'null' || currentUser.faceDescriptor === 'undefined';
-            
+
             if (isFirstTime) {
-                const confirm_ = confirm('📸 นี่คือการลงทะเบียนใบหน้าครั้งแรก\nระบบจะบันทึกใบหน้าของคุณไว้สำหรับยืนยันตัวตน\nยืนยันหรือไม่?');
-                if (!confirm_) { isCapturing = false; detectionCount = 0; return; }
+                // Remove confirm as per user request "ไม่ต้องถาม"
+                // const confirm_ = confirm('📸 นี่คือการลงทะเบียนใบหน้าครั้งแรก\nระบบจะบันทึกใบหน้าของคุณไว้สำหรับยืนยันตัวตน\nยืนยันหรือไม่?');
+                // if (!confirm_) { isCapturing = false; detectionCount = 0; return; }
 
                 showToast('⏳ กำลังลงทะเบียน...', 'info');
                 const descArr = Array.from(descriptor);
@@ -1082,12 +1138,12 @@
                     active: true, faceDescriptor: JSON.stringify(descArr),
                     department: currentUser.department, position: currentUser.position
                 });
-                
+
                 currentUser.faceDescriptor = JSON.stringify(descArr);
                 sessionStorage.setItem('wfh_current', JSON.stringify(currentUser));
                 faceVerified = true;
                 photoDataUrl = canvas.toDataURL('image/jpeg', 0.5); // Ensure photo is set
-                
+
                 resEl.style.color = '#10b981';
                 resEl.textContent = '✅ ลงทะเบียนสำเร็จ (กำลังลงเวลา...)';
                 overlay.innerHTML = '✔️';
@@ -1100,7 +1156,7 @@
                     else doCheckOut();
                 }, 1000);
 
-            // Case 2: Verification (Existing user)
+                // Case 2: Verification (Existing user)
             } else {
                 const storedArr = JSON.parse(currentUser.faceDescriptor);
                 const storedDesc = new Float32Array(storedArr);
@@ -1110,16 +1166,20 @@
                     faceVerified = false;
                     photoDataUrl = null;
                     document.getElementById('actionBtnGroup').style.display = 'none';
-                    
+
                     // Show cross on image
                     overlay.innerHTML = '❌';
                     overlay.classList.add('fail', 'show');
                     imgEl.style.borderColor = '#ef4444';
-                    
+
                     setTimeout(() => {
-                        alert(`❌ ใบหน้าไม่ถูกต้อง (ระยะ: ${distance.toFixed(2)})\nระบบจะทำการออกจากระบบเพื่อความปลอดภัย`);
-                        logout();
-                    }, 800);
+                        const wantReset = confirm(`❌ ใบหน้าไม่ถูกต้อง (ระยะ: ${distance.toFixed(2)})\n\nหากคุณคือเจ้าของบัญชีตัวจริงและต้องการลงทะเบียนใบหน้าใหม่เพื่ออัปเดตข้อมูล กด "ตกลง"\n(หากไม่ใช่ ระบบจะออกจากระบบเพื่อความปลอดภัย)`);
+                        if (wantReset) {
+                            resetFaceData(true); // true = auto/silent
+                        } else {
+                            logout();
+                        }
+                    }, 500);
                     return;
                 } else {
                     faceVerified = true;
@@ -1132,12 +1192,18 @@
                     overlay.innerHTML = '✔️';
                     overlay.classList.add('success', 'show');
                     imgEl.style.borderColor = '#10b981';
+
+                    // AUTO-SUBMIT for existing users too
+                    setTimeout(() => {
+                        if (!isCurrentlyIn) doCheckIn();
+                        else doCheckOut();
+                    }, 1000);
                 }
             }
 
             // ===== Capture photo with Resizing & Compression =====
             const video = document.getElementById('faceVideo');
-            
+
             if (video.videoWidth === 0 || video.videoHeight === 0) {
                 showToast('❌ กล้องยังไม่พร้อม กรุณารอสักครู่', 'error');
                 isCapturing = false;
@@ -1149,7 +1215,7 @@
             const MAX_WIDTH = 400;
             let targetWidth = video.videoWidth;
             let targetHeight = video.videoHeight;
-            
+
             if (targetWidth > MAX_WIDTH) {
                 const ratio = MAX_WIDTH / targetWidth;
                 targetWidth = MAX_WIDTH;
@@ -1160,19 +1226,19 @@
             canvas.width = targetWidth;
             canvas.height = targetHeight;
             const ctx = canvas.getContext('2d');
-            
+
             // Set mirror effect
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
+
             // Check if blank
             if (isCanvasBlank(canvas)) {
                 showToast('❌ ไม่สามารถบันทึกภาพได้ กรุณาลองใหม่', 'error');
                 retakeFace();
                 return;
             }
-            
+
             // Use JPEG with 0.5 quality for maximum compression
             photoDataUrl = canvas.toDataURL('image/jpeg', 0.5);
 
@@ -1198,7 +1264,7 @@
             document.getElementById('captureBtn').style.display = 'none';
             document.getElementById('capturedImg').src = photoDataUrl;
             document.getElementById('faceCaptured').style.display = 'block';
-            
+
             setTimeout(() => {
                 validateSteps();
             }, 1000);
@@ -1230,11 +1296,11 @@
 
 
         let currentTodayLogs = [];
-        let lastCheckedDate = ''; 
+        let lastCheckedDate = '';
         async function loadTodayLogs() {
             const now = new Date();
             const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-            
+
             // Auto Reset if midnight passed
             if (lastCheckedDate && lastCheckedDate !== today) {
                 console.log('Day changed! Resetting UI status.');
@@ -1319,15 +1385,15 @@
             const loc = document.getElementById('locationSelect').value;
             if (!loc) { showToast('กรุณาเลือกสถานที่ก่อน', 'warning'); return; }
             if (todayCheckin && !todayCheckout) { showToast('คุณเข้างานไปแล้ว และยังไม่ได้ออกงาน', 'warning'); return; }
-            
+
             setBtnLoading('btnIn', 'spinIn', 'txtIn', true);
-            try { await getGPS(); } catch(e) { console.error('GPS re-fetch error', e); }
+            try { await getGPS(); } catch (e) { console.error('GPS re-fetch error', e); }
             const now = new Date();
             const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            
+
             let lateMin = 0;
-            let adminCheckInTime = '08:30'; 
+            let adminCheckInTime = '08:30';
 
             try {
                 const settResp = await api('?action=getSettings');
@@ -1335,8 +1401,8 @@
                 if (sData.checkInTime) {
                     adminCheckInTime = sData.checkInTime;
                 }
-            } catch (e) { 
-                console.error('Settings fetch error:', e); 
+            } catch (e) {
+                console.error('Settings fetch error:', e);
             }
 
             // Function to parse various time formats
@@ -1378,8 +1444,10 @@
                 todayCheckin = { type: 'checkin', time };
                 isCurrentlyIn = true;
                 updateTodayStatus();
-                alert(`✅ บันทึกสำเร็จ!\n\n${debugInfo}`);
-                logout();
+                showToast(`✅ บันทึกสำเร็จ!\n${debugInfo}`, 'success');
+                setTimeout(() => {
+                    logout();
+                }, 2000);
             } catch (e) {
                 showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
             } finally { setBtnLoading('btnIn', 'spinIn', 'txtIn', false, '🟢 เข้างาน'); }
@@ -1389,22 +1457,22 @@
             const loc = document.getElementById('locationSelect').value;
             if (!loc) { showToast('กรุณาเลือกสถานที่ก่อน', 'warning'); return; }
             if (!isCurrentlyIn) { showToast('คุณยังไม่ได้กดเข้างาน (ไม่สามารถออกงานได้)', 'error'); return; }
-            
+
             setBtnLoading('btnOut', 'spinOut', 'txtOut', true);
-            try { await getGPS(); } catch(e) { console.error('GPS re-fetch error', e); }
+            try { await getGPS(); } catch (e) { console.error('GPS re-fetch error', e); }
             const now = new Date();
             const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            
+
             let earlyMin = 0;
             try {
                 const settResp = await api('?action=getSettings');
                 const adminCheckOutTime = settResp.data.checkOutTime || '16:30';
-                
+
                 const [targetH, targetM] = adminCheckOutTime.split(':').map(Number);
                 const targetTotalMins = (targetH * 60) + targetM;
                 const currentTotalMins = (now.getHours() * 60) + now.getMinutes();
-                
+
                 earlyMin = Math.max(0, targetTotalMins - currentTotalMins);
             } catch (e) { console.error('Settings fetch error:', e); }
 
@@ -1417,8 +1485,10 @@
                 todayCheckout = { type: 'checkout', time };
                 isCurrentlyIn = false;
                 updateTodayStatus();
-                alert('✅ ลงเวลาออกงานสำเร็จ!' + (earlyMin > 0 ? ` (ออกก่อน ${earlyMin} นาที)` : ''));
-                logout();
+                showToast('✅ ลงเวลาออกงานสำเร็จ!' + (earlyMin > 0 ? ` (ออกก่อน ${earlyMin} นาที)` : ''), 'success');
+                setTimeout(() => {
+                    logout();
+                }, 2000);
             } catch (e) {
                 showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
             } finally { setBtnLoading('btnOut', 'spinOut', 'txtOut', false, '🔴 ออกงาน'); }
@@ -1488,6 +1558,38 @@
             document.getElementById('pPhone').textContent = currentUser.phone;
             document.getElementById('pDept').textContent = currentUser.department || '-';
             document.getElementById('pPos').textContent = currentUser.position || '-';
+        }
+
+        async function resetFaceData(isAuto = false) {
+            if (!isAuto) {
+                if (!confirm('⚠️ ยืนยันว่าต้องการลบข้อมูลใบหน้าปัจจุบันใช่หรือไม่?\n(คุณจะต้องสแกนใหม่ในการใช้งานครั้งต่อไป)')) return;
+            }
+
+            showLoading(true);
+            try {
+                // Clear in database
+                await api('', 'POST', {
+                    action: 'saveUser',
+                    id: currentUser.id, phone: currentUser.phone, name: currentUser.name,
+                    password: currentUser.password, role: currentUser.role,
+                    salary: currentUser.salary || '0', shift: currentUser.shift || 'standard',
+                    active: true, faceDescriptor: '',
+                    department: currentUser.department, position: currentUser.position
+                });
+
+                // Clear in session
+                currentUser.faceDescriptor = '';
+                sessionStorage.setItem('wfh_current', JSON.stringify(currentUser));
+
+                showToast('✅ ลบข้อมูลใบหน้าเดิมเรียบร้อยแล้ว', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } catch (e) {
+                showToast('❌ ไม่สามารถลบข้อมูลได้: ' + e.message, 'error');
+            } finally {
+                showLoading(false);
+            }
         }
 
 
@@ -1568,7 +1670,10 @@
 
         function showToast(msg, type = 'success') {
             const t = document.getElementById('toast');
-            t.textContent = msg; t.className = 'toast ' + type + ' show';
+            if (!t) return;
+            // Support multi-line by replacing \n with <br>
+            t.innerHTML = msg.replace(/\n/g, '<br>');
+            t.className = 'toast ' + type + ' show';
             setTimeout(() => t.className = 'toast', 3500);
         }
 
