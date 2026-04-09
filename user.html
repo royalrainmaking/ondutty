@@ -1648,6 +1648,12 @@
                 };
 
                 await api('', 'POST', payload);
+                
+                // Clear face state and hide action buttons immediately
+                photoDataUrl = null;
+                faceVerified = false;
+                document.getElementById('actionBtnGroup').style.display = 'none';
+
                 todayCheckin = { type: 'checkin', time };
                 hasDoneCheckinToday = true;
                 isCurrentlyIn = true;
@@ -1690,6 +1696,12 @@
                     date: today, time, type: 'checkout', location: loc,
                     lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: '', lateMin: -earlyMin
                 });
+
+                // Clear face state and hide action buttons immediately
+                photoDataUrl = null;
+                faceVerified = false;
+                document.getElementById('actionBtnGroup').style.display = 'none';
+
                 todayCheckout = { type: 'checkout', time };
                 hasDoneCheckoutToday = true;
                 isCurrentlyIn = false;
