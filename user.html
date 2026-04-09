@@ -25,42 +25,38 @@
         .topnav {
             background: #fff;
             border-bottom: 1px solid #e8e8e8;
-            padding: 0 24px;
+            padding: 0 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            height: 60px;
+            height: 56px;
             position: sticky;
             top: 0;
             z-index: 100
         }
 
-        .nav-tabs {
-            display: flex;
-            gap: 4px
-        }
-
-        .nav-tab {
-            padding: 10px 20px;
+        .btn-back {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
             border-radius: 10px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            background: transparent;
-            color: #888;
+            background: #f0fdf4;
+            color: #059669;
+            border: 1px solid #d1fae5;
+            font-size: 14px;
+            font-weight: 700;
             font-family: 'Sarabun', sans-serif;
-            transition: all .2s
+            cursor: pointer;
+            transition: all .2s;
         }
+        .btn-back:hover { background: #dcfce7; }
+        .btn-back.visible { display: flex; }
 
-        .nav-tab.active {
-            background: #ecfdf5;
-            color: #10b981
-        }
-
-        .nav-tab:hover {
-            background: #f8f8f8;
-            color: #444
+        .nav-page-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #333;
         }
 
         .btn-logout {
@@ -815,11 +811,10 @@
         <div style="color:#10b981;font-weight:700">กำลังโหลด...</div>
     </div>
     <nav class="topnav">
-        <div class="nav-tabs" id="mainNavTabs">
-            <button class="nav-tab" onclick="showPage('clockin')" id="tab-clockin">📋 ลงเวลา</button>
-            <button class="nav-tab" onclick="showPage('history')" id="tab-history">📅 ประวัติ</button>
-            <button class="nav-tab" onclick="showPage('profile')" id="tab-profile">👤 โปรไฟล์</button>
-        </div>
+        <button class="btn-back" id="btnBack" onclick="goBack()">
+            ← กลับหน้าหลัก
+        </button>
+        <div class="nav-page-title" id="navPageTitle"></div>
         <button class="btn-logout" onclick="logout()">ออกจากระบบ</button>
     </nav>
 
@@ -1705,7 +1700,18 @@
             return json;
         }
 
-        let clockinPageVisited = false;
+        const pageTitles = { clockin: '📋 ลงเวลา', history: '📅 ประวัติ', profile: '👤 โปรไฟล์' };
+
+        function goBack() {
+            // กลับหน้า landing
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            const landing = document.getElementById('page-landing');
+            if (landing) landing.classList.add('active');
+            document.getElementById('btnBack').classList.remove('visible');
+            document.getElementById('navPageTitle').textContent = '';
+        }
+
+        let cameraStarted = false;
         function showPage(name) {
             // Hide landing
             const landing = document.getElementById('page-landing');
@@ -1717,15 +1723,46 @@
             const tabEl = document.getElementById('tab-' + name);
             if (tabEl) tabEl.classList.add('active');
 
+            // แสดงปุ่มกลับ + ชื่อหน้า
+            document.getElementById('btnBack').classList.add('visible');
+            document.getElementById('navPageTitle').textContent = pageTitles[name] || '';
+
             if (name === 'history') renderHistory();
             if (name === 'profile') loadProfile();
-            if (name === 'clockin' && !clockinPageVisited) {
-                clockinPageVisited = true;
-                // Only start GPS + camera when user actually goes to clock-in page
-                getGPS();
-                if (!hasDoneCheckinToday || !hasDoneCheckoutToday) {
-                    startFaceScanner();
+            if (name === 'clockin') handleClockinPage();
+        }
+
+        async function handleClockinPage() {
+            // รอโหลดข้อมูลวันนี้ให้เสร็จก่อนตัดสินใจทุกครั้ง
+            if (window.logsPromise) await window.logsPromise;
+
+            const blockedEl = document.getElementById('clockinBlockedMsg');
+            const blockedTitle = document.getElementById('blockedTitle');
+            const blockedDesc = document.getElementById('blockedDesc');
+
+            if (hasDoneCheckinToday && hasDoneCheckoutToday) {
+                // ลงเวลาครบแล้ว — แสดงข้อความแจ้ง ไม่เปิดกล้อง
+                if (blockedEl) blockedEl.style.display = 'block';
+                if (blockedTitle) blockedTitle.textContent = '✅ วันนี้คุณลงเวลาเข้า-ออกครบแล้ว';
+                if (blockedDesc) {
+                    const ciT = todayCheckin ? formatTime(todayCheckin.time) : '--:--';
+                    const coT = todayCheckout ? formatTime(todayCheckout.time) : '--:--';
+                    blockedDesc.textContent = `เข้างาน ${ciT} น.  —  ออกงาน ${coT} น.\nหากต้องการลงเวลาใหม่ กรุณาให้แอดมินลบรายการก่อน`;
                 }
+                document.getElementById('step2').style.display = 'none';
+                document.getElementById('step3').style.display = 'none';
+                document.getElementById('actionBtnGroup').style.display = 'none';
+                return; // หยุดตรงนี้ ไม่เปิด GPS/กล้อง
+            }
+
+            // ยังไม่ครบ — ซ่อน blocked message
+            if (blockedEl) blockedEl.style.display = 'none';
+
+            // เปิด GPS + กล้องเพียงครั้งเดียว
+            if (!cameraStarted) {
+                cameraStarted = true;
+                getGPS();
+                startFaceScanner();
             }
         }
 
