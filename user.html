@@ -802,10 +802,95 @@
             border-color: #ef4444;
             box-shadow: 0 0 0 1000px rgba(239, 68, 68, 0.1), 0 0 0 1000px rgba(15, 23, 42, 0.5);
         }
+
+        /* === Confirm Modal === */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .modal-backdrop.show { display: flex; }
+        .modal-box {
+            background: #fff;
+            border-radius: 20px;
+            padding: 28px 24px;
+            max-width: 360px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            animation: modalIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275);
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.85); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        .modal-icon { font-size: 48px; text-align: center; margin-bottom: 12px; }
+        .modal-title { font-size: 18px; font-weight: 700; color: #111; text-align: center; margin-bottom: 6px; }
+        .modal-sub   { font-size: 13px; color: #888; text-align: center; margin-bottom: 20px; line-height: 1.6; }
+        .modal-time  {
+            background: #f0fdf4;
+            border-radius: 12px;
+            padding: 12px 16px;
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            color: #059669;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+        }
+        .modal-actions { display: flex; gap: 10px; }
+        .btn-modal-cancel {
+            flex: 1;
+            padding: 13px;
+            border-radius: 12px;
+            border: 2px solid #e8e8e8;
+            background: #fff;
+            font-size: 15px;
+            font-weight: 700;
+            color: #555;
+            font-family: 'Sarabun', sans-serif;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .btn-modal-cancel:hover { background: #f5f5f5; }
+        .btn-modal-confirm {
+            flex: 2;
+            padding: 13px;
+            border-radius: 12px;
+            border: none;
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            font-family: 'Sarabun', sans-serif;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .btn-modal-confirm.in  { background: #22c55e; }
+        .btn-modal-confirm.in:hover  { background: #16a34a; }
+        .btn-modal-confirm.out { background: #ef4444; }
+        .btn-modal-confirm.out:hover { background: #dc2626; }
     </style>
 </head>
 
 <body>
+    <!-- Confirm Modal -->
+    <div class="modal-backdrop" id="confirmModal">
+        <div class="modal-box">
+            <div class="modal-icon" id="modalIcon"></div>
+            <div class="modal-title" id="modalTitle"></div>
+            <div class="modal-sub" id="modalSub"></div>
+            <div class="modal-time" id="modalTime"></div>
+            <div class="modal-actions">
+                <button class="btn-modal-cancel" onclick="closeConfirmModal()">✕ ยกเลิก</button>
+                <button class="btn-modal-confirm" id="modalConfirmBtn" onclick="confirmModalAction()">✔ ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
     <div class="loading-overlay" id="loadingOverlay">
         <div class="spinner"></div>
         <div style="color:#10b981;font-weight:700">กำลังโหลด...</div>
@@ -921,11 +1006,11 @@
         </div>
 
         <div class="btn-group" id="actionBtnGroup" style="display:none; transition: all 0.3s">
-            <button class="btn-checkin" id="btnIn" onclick="doCheckIn()">
+            <button class="btn-checkin" id="btnIn" onclick="confirmAction('in')">
                 <div class="btn-spinner" id="spinIn"></div>
                 <span id="txtIn">🟢 เข้างาน</span>
             </button>
-            <button class="btn-checkout" id="btnOut" onclick="doCheckOut()">
+            <button class="btn-checkout" id="btnOut" onclick="confirmAction('out')">
                 <div class="btn-spinner" id="spinOut"></div>
                 <span id="txtOut">🔴 ออกงาน</span>
             </button>
@@ -1301,9 +1386,8 @@
 
                 setTimeout(async () => {
                     if (window.logsPromise) await window.logsPromise;
-                    if (!isCurrentlyIn) doCheckIn();
-                    else doCheckOut();
-                }, 1000);
+                    confirmAction(!isCurrentlyIn ? 'in' : 'out');
+                }, 800);
 
             } else {
                 const storedArr = JSON.parse(currentUser.faceDescriptor);
@@ -1336,9 +1420,8 @@
 
                     setTimeout(async () => {
                         if (window.logsPromise) await window.logsPromise;
-                        if (!isCurrentlyIn) doCheckIn();
-                        else doCheckOut();
-                    }, 1000);
+                        confirmAction(!isCurrentlyIn ? 'in' : 'out');
+                    }, 800);
                 }
             }
 
@@ -1474,6 +1557,37 @@
             validateSteps();
         }
 
+        let pendingConfirmAction = null;
+        function confirmAction(type) {
+            pendingConfirmAction = type;
+            const now = new Date();
+            const timeStr = [now.getHours(), now.getMinutes()].map(n => String(n).padStart(2, '0')).join(':');
+            
+            document.getElementById('modalIcon').textContent = type === 'in' ? '🟢' : '🔴';
+            document.getElementById('modalTitle').textContent = type === 'in' ? 'ยืนยันการเข้างาน' : 'ยืนยันการออกงาน';
+            document.getElementById('modalSub').innerHTML = `คุณ <b>${currentUser.name}</b><br>กำลังจะลงเวลา${type === 'in' ? 'เข้างาน' : 'ออกงาน'}ในขณะนี้`;
+            document.getElementById('modalTime').textContent = timeStr + ' น.';
+            
+            const btn = document.getElementById('modalConfirmBtn');
+            btn.className = 'btn-modal-confirm ' + type;
+            btn.textContent = '✔ ยืนยัน';
+
+            document.getElementById('confirmModal').classList.add('show');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.remove('show');
+            pendingConfirmAction = null;
+        }
+
+        function confirmModalAction() {
+            if (!pendingConfirmAction) return;
+            const type = pendingConfirmAction;
+            closeConfirmModal();
+            if (type === 'in') doCheckIn();
+            else if (type === 'out') doCheckOut();
+        }
+
         async function doCheckIn() {
             const loc = document.getElementById('locationSelect').value;
             if (!loc) { showToast('กรุณาเลือกสถานที่ก่อน', 'warning'); return; }
@@ -1539,9 +1653,8 @@
                 isCurrentlyIn = true;
                 updateTodayStatus();
                 showToast(`✅ บันทึกเข้างานสำเร็จ!\n${debugInfo}`, 'success');
-                setTimeout(() => {
-                    logout();
-                }, 2000);
+                // รอสักครู่เพื่อให้ toast แสดงก่อน แล้วซ่อนปุ่ม
+                setTimeout(() => { handleClockinPage(); }, 1200);
             } catch (e) {
                 showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
             } finally { setBtnLoading('btnIn', 'spinIn', 'txtIn', false, '🟢 เข้างาน'); }
@@ -1582,9 +1695,8 @@
                 isCurrentlyIn = false;
                 updateTodayStatus();
                 showToast('✅ ลงเวลาออกงานสำเร็จ!' + (earlyMin > 0 ? ` (ออกก่อน ${earlyMin} นาที)` : ''), 'success');
-                setTimeout(() => {
-                    logout();
-                }, 2000);
+                // รอสักครู่เพื่อให้ toast แสดงก่อน แล้วซ่อนปุ่ม
+                setTimeout(() => { handleClockinPage(); }, 1200);
             } catch (e) {
                 showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
             } finally { setBtnLoading('btnOut', 'spinOut', 'txtOut', false, '🔴 ออกงาน'); }
