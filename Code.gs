@@ -201,10 +201,38 @@ function getLogs(params) {
 
 function addLog(data) {
   const sheet = getSheet('logs');
+  const logType = String(data.type);   // 'checkin' or 'checkout'
+  const logUserId = String(data.userId);
+  const logDate = String(data.date || '');
+
+  // ── Server-side duplicate guard ──────────────────────────────────────────
+  // ป้องกันบันทึก checkin หรือ checkout ซ้ำในวันเดียวกัน
+  if (logDate && (logType === 'checkin' || logType === 'checkout')) {
+    const allLogs = sheet.getDataRange().getDisplayValues();
+    if (allLogs.length > 1) {
+      const headers = allLogs[0]; // ['id','userId','userName','date','time','type',...]
+      const userIdIdx = headers.indexOf('userId');
+      const dateIdx   = headers.indexOf('date');
+      const typeIdx   = headers.indexOf('type');
+
+      const duplicate = allLogs.slice(1).some(row => {
+        const rowUserId = String(row[userIdIdx] || '').replace(/^'/, '');
+        const rowDate   = String(row[dateIdx]   || '').replace(/^'/, '');
+        const rowType   = String(row[typeIdx]   || '').replace(/^'/, '');
+        return rowUserId === logUserId && rowDate === logDate && rowType === logType;
+      });
+
+      if (duplicate) {
+        return {success: false, error: `มีการลงเวลา${logType === 'checkin' ? 'เข้างาน' : 'ออกงาน'}วันนี้ไปแล้ว`};
+      }
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
   const id = "'" + String(Date.now());
-  const userId = "'" + String(data.userId);
+  const userId = "'" + logUserId;
   const userName = "'" + String(data.userName);
-  const type = "'" + String(data.type);
+  const type = "'" + logType;
   const location = "'" + String(data.location || '');
   const lat = "'" + String(data.lat || '');
   const lng = "'" + String(data.lng || '');
@@ -214,7 +242,7 @@ function addLog(data) {
   const photo = data.photo ? data.photo.substring(0, 40000) : '';
   const sig   = data.signature ? data.signature.substring(0, 10000) : '';
   
-  const date = "'" + String(data.date || '');
+  const date = "'" + logDate;
   const time = "'" + String(data.time || '');
   
   sheet.appendRow([id, userId, userName, date, time, type,

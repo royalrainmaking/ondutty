@@ -1662,7 +1662,11 @@
                 // รอสักครู่เพื่อให้ toast แสดงก่อน แล้วซ่อนปุ่ม
                 setTimeout(() => { handleClockinPage(); }, 1200);
             } catch (e) {
-                showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
+                showToast('❌ ' + e.message, 'error');
+                // Re-sync state from server in case of duplicate rejection
+                window.logsPromise = loadTodayLogs();
+                await window.logsPromise;
+                handleClockinPage();
             } finally { setBtnLoading('btnIn', 'spinIn', 'txtIn', false, '🟢 เข้างาน'); }
         }
 
@@ -1710,7 +1714,11 @@
                 // รอสักครู่เพื่อให้ toast แสดงก่อน แล้วซ่อนปุ่ม
                 setTimeout(() => { handleClockinPage(); }, 1200);
             } catch (e) {
-                showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
+                showToast('❌ ' + e.message, 'error');
+                // Re-sync state from server in case of duplicate rejection
+                window.logsPromise = loadTodayLogs();
+                await window.logsPromise;
+                handleClockinPage();
             } finally { setBtnLoading('btnOut', 'spinOut', 'txtOut', false, '🔴 ออกงาน'); }
         }
 
