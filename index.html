@@ -221,6 +221,7 @@
       transform: scale(1.05);
     }
   </style>
+  <script src="config.js"></script>
 </head>
 
 <body>
@@ -284,7 +285,8 @@
 
   <script>
     const STORAGE_KEY = 'wfh_api_url';
-    const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbyvLkBo7FmUewh1CFpW2xcCijIBaR8tSLT5rV3dQ1869jFf9SXfF_A6vEFIa8yZyEGcoA/exec';
+    // URL หลักอยู่ในไฟล์ config.js (บรรทัดล่างเป็นค่าสำรองถ้าโหลด config.js ไม่ได้)
+    const DEFAULT_API = window.WFH_API_URL || 'https://script.google.com/macros/s/AKfycbxdPpY1K8-T7Y8GRO8oBDBqTx52K6waC9qiBcLif0FvLZXMqdAyIrxI1O2LtP7MucBnSg/exec';
 
     function init() {
       // บังคับใช้ API ล่าสุดเสมอ เนื่องจากลบช่องกรอก API ออกไปแล้ว

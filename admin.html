@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
     <style>
+        @keyframes spin { 100% { transform: rotate(360deg); } }
         * {
             margin: 0;
             padding: 0;
@@ -16,7 +17,7 @@
         }
 
         body {
-            font-family: 'Sarabun', sans-serif;
+            font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;
             background: #f0fdf4;
             display: flex;
             min-height: 100vh
@@ -110,15 +111,15 @@
             background: transparent;
             width: calc(100%-16px);
             text-align: left;
-            font-family: 'Sarabun', sans-serif;
+            font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;
             width: calc(100% - 16px)
         }
 
         .data-sync { margin: 14px 12px 0; padding: 10px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; text-align: center; }
-        .btn-refresh { width: 100%; padding: 9px; border: none; border-radius: 10px; background: #e0f2fe; color: #0369a1; font-weight: 700; font-family: 'Sarabun', sans-serif; font-size: 13px; cursor: pointer; }
+        .btn-refresh { width: 100%; padding: 9px; border: none; border-radius: 10px; background: #e0f2fe; color: #0369a1; font-weight: 700; font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; font-size: 13px; cursor: pointer; }
         .btn-refresh:hover { background: #bae6fd; }
         .data-sync-time { font-size: 11px; color: #94a3b8; margin-top: 6px; }
-        .btn-photo { border: 1px solid #e2e8f0; background: #fff; border-radius: 8px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-family: 'Sarabun', sans-serif; margin: 2px; }
+        .btn-photo { border: 1px solid #e2e8f0; background: #fff; border-radius: 8px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; margin: 2px; }
         .btn-photo:hover { background: #f1f5f9; }
 
         .nav-item:hover {
@@ -152,7 +153,7 @@
             border-radius: 10px;
             font-size: 14px;
             cursor: pointer;
-            font-family: 'Sarabun', sans-serif;
+            font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;
             font-weight: 600
         }
 
@@ -267,7 +268,7 @@
             border-radius: 10px;
             font-size: 14px;
             font-weight: 700;
-            font-family: 'Sarabun', sans-serif;
+            font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;
             cursor: pointer;
             transition: all .2s
         }
@@ -284,7 +285,7 @@
             border-radius: 10px;
             font-size: 14px;
             font-weight: 700;
-            font-family: 'Sarabun', sans-serif;
+            font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;
             cursor: pointer
         }
 
@@ -360,7 +361,7 @@
             border-radius: 10px;
             font-size: 14px;
             font-weight: 700;
-            font-family: 'Sarabun', sans-serif;
+            font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;
             cursor: pointer
         }
 
@@ -370,7 +371,7 @@
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            font-family: 'Sarabun', sans-serif;
+            font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;
             border: none
         }
 
@@ -452,7 +453,7 @@
             border: 2px solid #e8e8e8;
             border-radius: 10px;
             font-size: 14px;
-            font-family: 'Sarabun', sans-serif;
+            font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;
             outline: none;
             background: #fafafa
         }
@@ -513,7 +514,7 @@
             border: 2px solid #e8e8e8;
             border-radius: 10px;
             font-size: 14px;
-            font-family: 'Sarabun', sans-serif;
+            font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;
             outline: none
         }
 
@@ -708,7 +709,21 @@
                 transform: rotate(360deg)
             }
         }
-    </style>
+    
+        /* LAYOUT ENHANCEMENTS */
+        .page { padding: 32px 40px; max-width: 100%; margin: 0 auto; width: 100%; }
+        .section-card { border-radius: 20px; padding: 28px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04); border: 1px solid #f1f5f9; background: #ffffff; width: 100%; }
+        .section-title { font-size: 20px; padding-left: 14px; border-left-width: 5px; margin-bottom: 24px; letter-spacing: -0.3px; }
+        .data-table th { background: #f8fafc; color: #475569; padding: 14px 18px; font-size: 14px; border-bottom: 2px solid #e2e8f0; }
+        .data-table td { padding: 14px 18px; font-size: 15px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+        .nav-item { padding: 12px 18px; font-size: 15px; border-radius: 12px; }
+        input, select { padding: 12px 16px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #f8fafc; font-size: 15px; transition: all .2s; }
+        input:focus, select:focus { border-color: #10b981; background: #ffffff; box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
+        .btn-primary { padding: 12px 24px; border-radius: 12px; font-size: 15px; box-shadow: 0 4px 12px rgba(16,185,129,0.2); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(16,185,129,0.3); }
+        .filter-row { gap: 12px; margin-bottom: 24px; }
+        .badge { font-size: 13px; padding: 6px 14px; }
+        </style>
     <script src="config.js"></script>
 </head>
 
@@ -731,7 +746,6 @@
         <div class="nav-section">เมนูผู้ดูแล</div>
         <button class="nav-item active" onclick="showPage('logs')"><span class="icon">📋</span> ประวัติลงเวลา</button>
         <button class="nav-item" onclick="showPage('employees')"><span class="icon">👥</span> จัดการพนักงาน</button>
-        <button class="nav-item" onclick="showPage('report')"><span class="icon">📈</span> รายงานสรุป</button>
         <button class="nav-item" onclick="showPage('settings')"><span class="icon">⚙️</span> ตั้งค่าระบบ</button>
         <div class="data-sync" id="dataSync">
             <button class="btn-refresh" onclick="refreshAllData()">🔄 ดึงข้อมูลใหม่</button>
@@ -812,11 +826,17 @@
         <!-- LOGS -->
         <div class="page active" id="page-logs">
             <div class="section-card">
-                <div class="section-header">
+                <div class="section-header" style="display:flex; flex-wrap:wrap; gap:16px;">
                     <div class="section-title">ประวัติการลงเวลา (แอดมิน)</div>
+                    <div style="display:flex; gap:10px; align-items:center; background:#f8fafc; padding:8px 16px; border-radius:12px; border:1px solid #e2e8f0; margin-left:auto;">
+                        <span style="font-size:13px; font-weight:700; color:#475569;">พิมพ์รายงานประจำวัน:</span>
+                        <input type="date" id="exportDailyDate" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; width:auto; font-family:'Sarabun',sans-serif;">
+                        <button class="btn-export prt" onclick="doExportDaily('print')" style="padding:6px 12px; font-size:13px;">🖨️ พิมพ์ / PDF</button>
+
+                    </div>
                 </div>
                 <div class="filter-row">
-                    <input type="text" placeholder="🔍 ค้นหาชื่อพนักงาน หรืองาน..." id="logSearch" oninput="filterLogs()">
+                    <input type="search" autocomplete="off" name="logSearchNoFill" readonly onfocus="this.removeAttribute('readonly')" placeholder="🔍 ค้นหาชื่อพนักงาน หรืองาน..." id="logSearch" oninput="filterLogs()">
                     <select id="logUserFilter" onchange="filterLogs()">
                         <option value="">พนักงานทั้งหมด</option>
                     </select>
@@ -865,31 +885,6 @@
                     </thead>
                     <tbody id="empBody"></tbody>
                 </table>
-            </div>
-        </div>
-
-        <!-- REPORT -->
-        <div class="page" id="page-report">
-            <div class="section-card">
-                <div class="section-header">
-                    <div class="section-title">รายงานสรุปการลงเวลา</div>
-                    <button class="btn-export" id="btnPrintMonthly" onclick="window.print()" style="display:none">🖨️ พิมพ์</button>
-                </div>
-                <div class="filter-row">
-                    <select id="reportType" onchange="onReportTypeChange()">
-                        <option value="daily">สรุปรายวัน (เข้า-ออก + งานที่ได้รับมอบหมาย)</option>
-                        <option value="person">สรุปรายบุคคล (รายเดือน)</option>
-                    </select>
-                    <button class="btn-sm" id="dailyPrev" onclick="shiftDailyDate(-1)" title="วันก่อนหน้า">◀</button>
-                    <input type="date" id="reportDate" onchange="renderDailyReport()">
-                    <button class="btn-sm" id="dailyNext" onclick="shiftDailyDate(1)" title="วันถัดไป">▶</button>
-                    <input type="month" id="reportMonth" style="display:none">
-                    <select id="reportUser" style="display:none">
-                        <option value="">พนักงานทั้งหมด</option>
-                    </select>
-                    <button class="btn-dark" onclick="runReport()">🔍 ดึงรายงาน</button>
-                </div>
-                <div id="reportContent"></div>
             </div>
         </div>
 
@@ -998,14 +993,16 @@
             const monthVal = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
             const salaryEl = document.getElementById('salaryMonth');
             if (salaryEl) salaryEl.value = monthVal;
-            document.getElementById('reportMonth').value = monthVal;
-            document.getElementById('reportDate').value = todayISO();
+            const expEl = document.getElementById('exportDailyDate');
+            if (expEl) expEl.value = todayISO();
             showLoading(true);
             try {
                 await Promise.all([loadUsers(), loadSettings(), ensureAllLogs()]);
             } catch (e) { showToast('❌ โหลดข้อมูลไม่ได้: ' + e.message, 'error'); }
             finally { showLoading(false); }
-            showPage('logs');
+            const startPage = location.hash.replace('#', '');
+            try { history.replaceState({ page: ADMIN_PAGES.includes(startPage) ? startPage : 'logs' }, '', location.href); } catch (e) { }
+            showPage(ADMIN_PAGES.includes(startPage) ? startPage : 'logs', true);
         }
 
         function startClock() {
@@ -1109,17 +1106,66 @@
 
         // ===== ข้อมูลกลาง: ดึงครั้งเดียวตอนเข้าหน้าแอดมิน แล้วทุกหน้าใช้ร่วมกัน =====
         // (ไม่ดึงรูป เพื่อให้เร็ว — รูปโหลดเฉพาะตอนกดดู)
-        let logsStore = null, logsStorePromise = null;
+        // เก็บสำเนาไว้ใน sessionStorage ด้วย: กด F5 / ปุ่มย้อนกลับของเบราว์เซอร์ / ออกไปหน้าอื่นแล้วกลับมา
+        // ก็ยังใช้ข้อมูลเดิมได้ ไม่ต้องดึงใหม่ (ล้างเองเมื่อปิดแท็บ หรือกด 🔄 ดึงข้อมูลใหม่)
+        const LOGS_CACHE_KEY = 'wfh_admin_logs_v2';
+        // แปลงวันที่ทุกรูปแบบ (07/10/2569, 2569-10-07, 2026-10-07T..., ฯลฯ) ให้เป็น yyyy-mm-dd แบบ ค.ศ.
+        function normDate(v) {
+            let s = String(v ?? '').replace(/^'/, '').trim();
+            if (!s) return '';
+            let y, m, d, mt;
+            if (s.includes('T') && !isNaN(new Date(s).getTime())) {
+                const x = new Date(s); y = x.getFullYear(); m = x.getMonth() + 1; d = x.getDate();
+            } else if ((mt = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))) {
+                y = +mt[1]; m = +mt[2]; d = +mt[3];
+            } else if ((mt = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/))) {
+                d = +mt[1]; m = +mt[2]; y = +mt[3];
+            } else return s;
+            if (y > 2400) y -= 543;
+            return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        }
+        let logsStore = null, logsStorePromise = null, logsStoreAt = 0;
+        function setSyncLabel() {
+            const el = document.getElementById('dataSyncTime'); if (!el || !logsStore) return;
+            const t = new Date(logsStoreAt || Date.now());
+            el.style.color = '';
+            el.textContent = `ข้อมูลเมื่อ ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')} น. (${logsStore.length} รายการ)`;
+        }
+        function readLogsCache() {
+            try {
+                const c = JSON.parse(sessionStorage.getItem(LOGS_CACHE_KEY) || 'null');
+                if (c && c.api === API_URL && Array.isArray(c.data)) return c;
+            } catch (e) { }
+            return null;
+        }
+        function writeLogsCache() {
+            try { sessionStorage.setItem(LOGS_CACHE_KEY, JSON.stringify({ api: API_URL, at: logsStoreAt, data: logsStore })); }
+            catch (e) { /* ข้อมูลใหญ่เกินที่เบราว์เซอร์เก็บได้ — ใช้ในหน่วยความจำอย่างเดียว */ }
+        }
         function ensureAllLogs(force = false) {
-            if (force) { logsStore = null; logsStorePromise = null; }
+            if (force) {
+                logsStore = null; logsStorePromise = null;
+                try { sessionStorage.removeItem(LOGS_CACHE_KEY); } catch (e) { }
+            }
             if (logsStore) return Promise.resolve(logsStore);
+            if (!force) {
+                const c = readLogsCache();
+                if (c) { logsStore = c.data; logsStoreAt = c.at; setSyncLabel(); return Promise.resolve(logsStore); }
+            }
             if (!logsStorePromise) {
                 logsStorePromise = api('?action=getLogs').then(r => {
-                    logsStore = r.data || [];
-                    const t = new Date();
-                    document.getElementById('dataSyncTime').style.color = '';
-                    document.getElementById('dataSyncTime').textContent =
-                        `ข้อมูลล่าสุด ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')} น. (${logsStore.length} รายการ)`;
+                    logsStore = (r.data || []).map(l => {
+                        const o = { ...l }; delete o.photo; delete o.signature;
+                        for (const key in o) {   // ตัด ' นำหน้า และช่องว่างหัวท้าย
+                            if (typeof o[key] === 'string') o[key] = o[key].replace(/^'/, '').trim();
+                        }
+                        o.date = normDate(o.date);
+                        o.time = formatTime(o.time);
+                        return o;
+                    });
+                    logsStoreAt = Date.now();
+                    writeLogsCache();
+                    setSyncLabel();
                     return logsStore;
                 }).catch(e => { logsStorePromise = null; throw e; });
             }
@@ -1132,13 +1178,9 @@
             const st = document.getElementById('dataSyncTime');
             if (st) { st.textContent = '❌ ดึงข้อมูลไม่สำเร็จ'; st.style.color = '#dc2626'; }
         }
-        async function logsInRange(from, to, withPhoto = false) {
-            if (withPhoto) {
-                const r = await api(`?action=getLogs&dateFrom=${from}&dateTo=${to}&withPhoto=1`);
-                return r.data || [];
-            }
+        async function logsInRange(from, to) {
             const all = await ensureAllLogs();
-            return all.filter(l => (!from || String(l.date) >= from) && (!to || String(l.date) <= to));
+            return all.filter(l => { const d = normDate(l.date); return (!from || d >= from) && (!to || d <= to); });
         }
         async function refreshAllData() {
             showLoading(true);
@@ -1147,7 +1189,6 @@
                 const active = document.querySelector('.page.active');
                 const name = active ? active.id.replace('page-', '') : 'logs';
                 if (name === 'logs') filterLogsFromStore();
-                if (name === 'report') runReport();
                 showToast('✅ ดึงข้อมูลใหม่แล้ว', 'success');
             } catch (e) { showToast('❌ ' + e.message, 'error'); }
             finally { showLoading(false); }
@@ -1191,7 +1232,7 @@
                     dfEl.value = t.slice(0, 8) + '01';
                     dtEl.value = t;
                 }
-                allLogs = await logsInRange(dfEl.value, dtEl.value, true);
+                allLogs = await logsInRange(dfEl.value, dtEl.value);
                 filterLogs();
             } catch (e) {
                 allLogs = [];
@@ -1201,10 +1242,13 @@
         }
 
         function filterLogs() {
-            const q = (document.getElementById('logSearch').value || '').toLowerCase();
+            const sEl = document.getElementById('logSearch');
+            // เบราว์เซอร์ชอบเติม URL/รหัสที่จำไว้จากหน้า login ลงช่องนี้เอง → ล้างทิ้ง
+            if (/^\s*https?:\/\//i.test(sEl.value)) sEl.value = '';
+            const q = (sEl.value || '').toLowerCase();
             const uf = document.getElementById('logUserFilter').value;
             const filtered = allLogs.filter(l => {
-                if (uf && String(l.userId) !== String(uf)) return false;
+                if (uf && !sameId(l.userId, uf)) return false;
                 if (q && !((l.userName || '') + ' ' + (l.task || '')).toLowerCase().includes(q)) return false;
                 return true;
             });
@@ -1222,10 +1266,11 @@
                 dayLogs.sort((a, b) => a.time.localeCompare(b.time));
                 let current = null;
                 dayLogs.forEach(l => {
-                    if (l.type === 'checkin') {
+                    const t = String(l.type || '').trim().toLowerCase();
+                    if (t === 'checkin' || t === 'in' || t === 'เข้างาน') {
                         if (current) sessions.push(current);
                         current = { ci: l, co: null, userId: l.userId, userName: l.userName, date: l.date };
-                    } else if (l.type === 'checkout') {
+                    } else if (t === 'checkout' || t === 'out' || t === 'ออกงาน') {
                         if (current) {
                             current.co = l;
                             sessions.push(current);
@@ -1233,6 +1278,11 @@
                         } else {
                             sessions.push({ ci: null, co: l, userId: l.userId, userName: l.userName, date: l.date });
                         }
+                    } else {
+                        // ประเภทที่ไม่รู้จัก: ยังแสดงให้เห็น ไม่ให้หายไป
+                        if (current) sessions.push(current);
+                        sessions.push({ ci: l, co: null, userId: l.userId, userName: l.userName, date: l.date });
+                        current = null;
                     }
                 });
                 if (current) sessions.push(current);
@@ -1252,7 +1302,12 @@
             if (!sorted.length) {
                 const total = logsStore ? logsStore.length : 0;
                 const df = document.getElementById('logDateFrom').value, dt = document.getElementById('logDateTo').value;
-                const latest = logsStore && logsStore.length ? logsStore.reduce((m, l) => String(l.date) > m ? String(l.date) : m, '') : '';
+                const latest = logsStore && logsStore.length ? logsStore.reduce((m, l) => normDate(l.date) > m ? normDate(l.date) : m, '') : '';
+                if (allLogs.length && (q || uf)) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="empty-state">มีข้อมูล ${allLogs.length} รายการในช่วงนี้ แต่ถูกซ่อนด้วยตัวกรอง${q ? ` คำค้นหา "${q.replace(/</g, '&lt;')}"` : ''}${uf ? ' (เลือกพนักงาน)' : ''}
+                        <br><button class="btn-primary" style="margin-top:8px" onclick="document.getElementById('logSearch').value='';document.getElementById('logUserFilter').value='';filterLogs()">ล้างตัวกรอง</button></td></tr>`;
+                    return;
+                }
                 tbody.innerHTML = `<tr><td colspan="8" class="empty-state">ไม่พบข้อมูลในช่วง ${df ? formatDateShort(df) : '-'} ถึง ${dt ? formatDateShort(dt) : '-'}
                     <br><small style="color:#64748b">ข้อมูลทั้งหมดในระบบ ${total} รายการ${latest ? ` · รายการล่าสุดวันที่ ${formatDateShort(latest)}` : ''}</small></td></tr>`;
                 return;
@@ -1268,14 +1323,10 @@
 
                 const renderImg = (log) => {
                     if (!log) return '';
-                    if (log.photo && log.photo.startsWith('data:image')) {
-                        return `<img src="${log.photo}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #ddd" onclick="previewImg('${log.photo}')" title="${log.type==='checkin'?'เข้า':'ออก'}">`;
-                    }
-                    if (log.photo && log.photo.length > 10) {
-                        // Some base64 might not have data:image prefix saved?
-                        return `<img src="data:image/jpeg;base64,${log.photo}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #ddd" onclick="previewImg('data:image/jpeg;base64,${log.photo}')" title="${log.type==='checkin'?'เข้า':'ออก'}">`;
-                    }
-                    return `<button class="btn-photo" onclick="viewPhoto('${log.id}', this)">📷 ${log.type==='checkin'?'เข้า':'ออก'}</button>`;
+                    if (photoCache[log.id] !== undefined) return photoThumbHtml(log.id, log.type);
+                    return `<div class="lazy-photo-wrapper" data-id="${log.id}" data-type="${log.type}" style="width:60px;height:60px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#94a3b8;">
+                        <svg style="width:20px;height:20px;animation: spin 1s linear infinite;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle style="opacity:0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path style="opacity:0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    </div>`;
                 };
                 const photoHtml = renderImg(ci);
                 const photoOutHtml = renderImg(co);
@@ -1327,9 +1378,17 @@
                     }
                 }
 
+                const userObj = findUserFor(s.userId, s.userName) || {};
+                const dept = userObj.department || '-';
+                const pos = userObj.position || '-';
+
                 return `<tr>
                     <td><strong>${formatDateShort(s.date)}</strong></td>
-                    <td>👤 ${s.userId}<br><small style="color:#555">${s.userName}</small></td>
+                    <td>
+                        <strong style="color:#1e293b; font-size:15px;">${s.userName}</strong><br>
+                        <small style="color:#0ea5e9; font-weight:600;">${dept}</small> <small style="color:#94a3b8;">|</small> <small style="color:#f59e0b;">${pos}</small><br>
+                        <small style="color:#94a3b8; font-size:11px;">ID: ${s.userId}</small>
+                    </td>
                     <td>
                         <div style="color:#16a34a;font-size:13px;font-weight:700">🟢 เข้า: ${ciTime}</div>
                         <div style="color:#dc2626;font-size:13px;font-weight:700;margin-top:4px">🔴 ออก: ${coTime}</div>
@@ -1345,6 +1404,56 @@
                     <td style="display:flex;flex-direction:column;gap:6px">${deleteHtml.join('')}</td>
                 </tr>`;
             }).join('');
+            
+            // โหลดรูปเบื้องหลัง (รูปที่เคยโหลดแล้วแสดงทันที ไม่โหลดซ้ำ)
+            setTimeout(processPhotoQueue, 50);
+        }
+
+        // ===== รูปถ่าย: โหลดเป็นชุด (ครั้งละ 15 รูปต่อ 1 คำขอ) ทีละคำขอ =====
+        // เดิมยิง 1 คำขอต่อ 1 รูป ทำให้ Apps Script รับไม่ไหว ช้า และรูปหายเมื่อสลับหน้า
+        const photoPending = new Set();
+        let isProcessingPhotos = false;
+        function photoThumbHtml(id, type) {
+            const src = photoCache[id];
+            if (!src) return `<div style="width:60px;height:60px;border-radius:6px;background:#f8fafc;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:11px">ไม่มีรูป</div>`;
+            return `<img src="${src}" data-photo-id="${id}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #ddd;cursor:pointer" onclick="previewImg(photoCache[this.dataset.photoId])" title="${type === 'checkin' ? 'เข้า' : 'ออก'}">`;
+        }
+        function paintPhoto(id) {
+            document.querySelectorAll(`.lazy-photo-wrapper[data-id="${CSS.escape(String(id))}"]`).forEach(el => {
+                el.outerHTML = photoThumbHtml(id, el.getAttribute('data-type'));
+            });
+        }
+        async function processPhotoQueue() {
+            if (isProcessingPhotos) return;
+            isProcessingPhotos = true;
+            try {
+                while (true) {
+                    // เก็บ id ที่ยังไม่มีรูปจากหน้าที่แสดงอยู่ตอนนี้ (ถ้าสลับหน้า/ค้นหาใหม่ จะใช้รายการล่าสุดเสมอ)
+                    const ids = [...new Set(Array.from(document.querySelectorAll('.lazy-photo-wrapper'))
+                        .map(el => el.getAttribute('data-id'))
+                        .filter(id => photoCache[id] === undefined && !photoPending.has(id)))].slice(0, 15);
+                    if (!ids.length) break;
+                    ids.forEach(id => photoPending.add(id));
+                    try {
+                        const r = await api(`?action=getPhotos&ids=${encodeURIComponent(ids.join(','))}`);
+                        const map = r.data || {};
+                        ids.forEach(id => {
+                            const src = String(map[id] || '');
+                            photoCache[id] = src.startsWith('data:image') ? src : (src.length > 100 ? 'data:image/jpeg;base64,' + src : '');
+                            paintPhoto(id);
+                        });
+                    } catch (e) {
+                        // เซิร์ฟเวอร์ยังไม่มี getPhotos (ยังไม่ deploy) หรือเรียกไม่สำเร็จ → แสดงปุ่มให้กดดูทีละรูปแทน
+                        ids.forEach(id => document.querySelectorAll(`.lazy-photo-wrapper[data-id="${CSS.escape(String(id))}"]`).forEach(el => {
+                            el.outerHTML = `<button class="btn-photo" onclick="viewPhoto('${id}', this)">📷 ดูรูป</button>`;
+                        }));
+                    } finally {
+                        ids.forEach(id => photoPending.delete(id));
+                    }
+                }
+            } finally {
+                isProcessingPhotos = false;
+            }
         }
 
         async function deleteLogItem(id) {
@@ -1353,7 +1462,7 @@
             try {
                 await api('', 'POST', { action: 'deleteLog', id });
                 allLogs = allLogs.filter(l => String(l.id) !== String(id));
-                if (logsStore) logsStore = logsStore.filter(l => String(l.id) !== String(id));
+                if (logsStore) { logsStore = logsStore.filter(l => String(l.id) !== String(id)); writeLogsCache(); setSyncLabel(); }
                 filterLogs(); showToast('ลบสำเร็จ', 'success');
             } catch (e) { showToast('❌ ' + e.message, 'error'); }
             finally { showLoading(false); }
@@ -1522,7 +1631,6 @@
                 + 'p.sub{text-align:center;color:#888;margin-bottom:16px;font-size:14px}'
                 + 'table{width:100%;border-collapse:collapse}'
                 + 'td{padding:12px 15px;border:1px solid #e8e8e8;font-size:15px}'
-                + '.footer{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px;text-align:center;font-size:13px;color:#666}'
                 + '</style></head><body>'
                 + '<h2>📊 สรุปประวัติลงเวลางาน</h2>'
                 + '<p class="sub">' + (appSettings.companyName || '') + '  |  ประจำเดือน ' + month + '</p>'
@@ -1534,138 +1642,6 @@
             w.document.write(html);
             w.document.close();
             w.onload = () => w.print();
-        }
-
-        // --- REPORT ---
-        async function renderReport() {
-            const month = document.getElementById('reportMonth').value;
-            const uf = document.getElementById('reportUser').value;
-            if (!month) { showToast('กรุณาเลือกเดือนก่อน', 'warning'); return; }
-
-            if (!logsStore) showLoading(true);
-            try {
-                let logs = await logsInRange(`${month}-01`, `${month}-31`);
-                if (uf) logs = logs.filter(l => sameId(l.userId, uf));
-
-                // Group by user
-                const byUser = {};
-                logs.forEach(l => {
-                    if (!byUser[l.userId]) byUser[l.userId] = { ci: [], co: [], name: l.userName, logs: [] };
-                    if (l.type === 'checkin') byUser[l.userId].ci.push(l);
-                    else byUser[l.userId].co.push(l);
-                    byUser[l.userId].logs.push(l);
-                });
-
-                let html = '';
-
-                // Summary Table for "All Employees"
-                if (!uf) {
-                    html += `
-                    <div style="background:#fff;border-radius:14px;padding:20px;margin-bottom:24px;box-shadow:0 2px 12px rgba(0,0,0,.08); border-top: 4px solid #10b981;">
-                        <h3 style="margin-bottom:16px; color:#333; display:flex; align-items:center; gap:8px">📊 สรุปภาพรวมทุกพนักงาน - ${month}</h3>
-                        <div style="overflow-x:auto">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>พนักงาน</th>
-                                    <th style="text-align:center">วันทำงาน</th>
-                                    <th style="text-align:center">มาสาย (ครั้ง)</th>
-                                    <th style="text-align:center">สายสะสม (นาที)</th>
-                                    <th style="text-align:center">ออกก่อน (นาที)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${Object.keys(byUser).map(uid => ({ uid, u: findUserFor(uid, byUser[uid].name) || { id: uid, name: byUser[uid].name, phone: '' } })).map(({ uid, u }) => {
-                        const raw = byUser[uid] || { ci: [], co: [] };
-                        const worked = new Set(raw.ci.map(l => l.date)).size;
-                        const lateCount = raw.ci.filter(l => Number(l.lateMin || 0) > 0).length;
-                        const lateMins = raw.ci.reduce((s, l) => s + Math.max(0, Number(l.lateMin || 0)), 0);
-                        const earlyMins = raw.co.reduce((s, l) => s + Math.abs(Math.min(0, Number(l.lateMin || 0))), 0);
-
-                        return `<tr>
-                                        <td><strong>${u.name}</strong><br><small style="color:#888">${u.phone}</small></td>
-                                        <td style="text-align:center">${worked} วัน</td>
-                                        <td style="text-align:center; color:${lateCount > 0 ? '#ef4444' : '#16a34a'}">${lateCount}</td>
-                                        <td style="text-align:center; color:${lateMins > 0 ? '#f59e0b' : '#333'}">${lateMins}</td>
-                                        <td style="text-align:center; color:${earlyMins > 0 ? '#ef4444' : '#333'}">${earlyMins}</td>
-                                    </tr>`;
-                    }).join('')}
-                            </tbody>
-                        </table>
-                        </div>
-                    </div>`;
-                }
-
-                // Individual Details
-                const usersToDisplay = uf ? [uf] : Object.keys(byUser);
-                usersToDisplay.forEach(uid => {
-                    const data = byUser[uid];
-                    if (!data) return;
-                    const u = findUserFor(uid, data.name) || { name: data.name };
-
-                    const workedDays = new Set(data.ci.map(l => l.date)).size;
-                    const totalLate = data.ci.reduce((s, l) => s + Math.max(0, Number(l.lateMin || 0)), 0);
-
-                    html += `
-                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:20px; margin-bottom:16px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:2px solid #e2e8f0; padding-bottom:10px;">
-                            <div>
-                                <strong style="font-size:18px; color:#1e293b">${u.name}</strong>
-                                <div style="font-size:13px; color:#64748b">กลุ่ม: ${u.department || '-'} | ตำแหน่ง: ${u.position || '-'}</div>
-                            </div>
-                            <div style="text-align:right">
-                                <div style="color:#059669; font-weight:700">มาทำงาน: ${workedDays} วัน</div>
-                                <div style="color:#dc2626; font-weight:700">สายสะสม: ${totalLate} นาที</div>
-                            </div>
-                        </div>
-                        <table class="data-table" style="background: white; border-radius: 8px;">
-                            <thead>
-                                <tr>
-                                    <th>วันที่</th>
-                                    <th>เข้างาน</th>
-                                    <th>ออกงาน</th>
-                                    <th>สถานะ</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${(() => {
-                            // Group logs by date for this user
-                            const dateMap = {};
-                            data.logs.forEach(l => {
-                                if (!dateMap[l.date]) dateMap[l.date] = { ci: null, co: null };
-                                if (l.type === 'checkin') dateMap[l.date].ci = l;
-                                else dateMap[l.date].co = l;
-                            });
-
-                            return Object.keys(dateMap).sort((a, b) => a.localeCompare(b)).map(date => {
-                                const pair = dateMap[date];
-                                const late = (pair.ci && Number(pair.ci.lateMin || 0) > 0) ? Number(pair.ci.lateMin) : 0;
-                                const early = (pair.co && Number(pair.co.lateMin || 0) < 0) ? Math.abs(Number(pair.co.lateMin)) : 0;
-
-                                return `<tr>
-                                            <td>${formatDateShort(date)}</td>
-                                            <td style="color:#059669; font-weight:600">${pair.ci ? pair.ci.time : '-'}</td>
-                                            <td style="color:#dc2626; font-weight:600">${pair.co ? pair.co.time : '-'}</td>
-                                            <td>
-                                                ${late > 0 ? `<span class="badge badge-late" style="background:#fee2e2; color:#ef4444">สาย ${late}น.</span>` : ''}
-                                                ${early > 0 ? `<span class="badge badge-late" style="background:#fff7ed; color:#f59e0b">ออกก่อน ${early}น.</span>` : ''}
-                                                ${late <= 0 && early <= 0 && pair.ci && pair.co ? `<span class="badge badge-active">ปกติ</span>` : ''}
-                                                ${!pair.co && pair.ci ? `<span style="color:#94a3b8; font-size:12px">ยังไม่กดออก</span>` : ''}
-                                            </td>
-                                        </tr>`;
-                            }).join('');
-                        })()}
-                            </tbody>
-                        </table>
-                    </div>`;
-                });
-
-                if (!Object.keys(byUser).length) html = '';
-                document.getElementById('reportContent').innerHTML = html || '<div class="empty-state">ไม่พบข้อมูลในเดือนนี้</div>';
-            } catch (e) {
-                console.error(e);
-                showToast('❌ ' + e.message, 'error');
-            } finally { showLoading(false); }
         }
 
         // กล่องแสดงงาน: งานที่ได้รับมอบหมาย (ตอนเข้างาน, เขียว) / งานที่แล้วเสร็จ (ตอนออกงาน, ส้ม)
@@ -1693,42 +1669,17 @@
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
 
-        function onReportTypeChange() {
-            const daily = document.getElementById('reportType').value === 'daily';
-            ['dailyPrev', 'reportDate', 'dailyNext'].forEach(id => document.getElementById(id).style.display = daily ? '' : 'none');
-            ['reportMonth', 'reportUser'].forEach(id => document.getElementById(id).style.display = daily ? 'none' : '');
-            document.getElementById('btnPrintMonthly').style.display = daily ? 'none' : '';
-            document.getElementById('reportContent').innerHTML = '';
-            if (daily) renderDailyReport();
-        }
-
-        function runReport() {
-            if (document.getElementById('reportType').value === 'daily') renderDailyReport();
-            else renderReport();
-        }
-
-        function shiftDailyDate(n) {
-            const el = document.getElementById('reportDate');
-            const d = new Date((el.value || todayISO()) + 'T12:00:00');
-            d.setDate(d.getDate() + n);
-            el.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-            renderDailyReport();
-        }
-
         function escHtml(v) {
             return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
 
         function stripQ(v) { return String(v ?? '').replace(/^'/, ''); }
 
-        async function renderDailyReport() {
-            const date = document.getElementById('reportDate').value;
-            if (!date) { showToast('กรุณาเลือกวันที่ก่อน', 'warning'); return; }
+        async function fetchDailyDataForExport(date) {
+            if (!date) { showToast('กรุณาเลือกวันที่ก่อน', 'warning'); return false; }
             if (!logsStore) showLoading(true);
             try {
                 const logs = (await logsInRange(date, date)).filter(l => stripQ(l.date) === date);
-
-                // จับคู่ เข้า/ออก ต่อคน (ใช้รายการแรกของแต่ละประเภท)
                 const byUser = {};
                 logs.forEach(l => {
                     const uid = stripQ(l.userId);
@@ -1736,11 +1687,7 @@
                     if (l.type === 'checkin' && !byUser[uid].ci) byUser[uid].ci = l;
                     if (l.type === 'checkout' && !byUser[uid].co) byUser[uid].co = l;
                 });
-
-                // แสดงเฉพาะคนที่ลงเวลาในวันนั้น
-                const staff = allUsers;
                 const ids = Object.keys(byUser);
-
                 dailyDate = date;
                 dailyRows = ids.map(uid => {
                     const u = findUserFor(uid, (byUser[uid] || {}).name) || {};
@@ -1751,14 +1698,12 @@
                     const taskIn = ci ? stripQ(ci.task).trim() : '';
                     const taskOut = co ? stripQ(co.task).trim() : '';
                     const task = taskPlainText(taskIn, taskOut);
-
                     const notes = [];
                     if (!ci && !co) notes.push('ไม่ได้ลงเวลา');
                     if (late > 0) notes.push(`สาย ${late} นาที`);
                     if (early > 0) notes.push(`ออกก่อน ${early} นาที`);
                     if (ci && !co) notes.push('ยังไม่ลงเวลาออก');
                     if (!ci && co) notes.push('ไม่มีเวลาเข้า');
-
                     return {
                         name: u.name || rec.name || uid,
                         department: u.department || '',
@@ -1770,57 +1715,24 @@
                         absent: !ci && !co, late: late > 0
                     };
                 });
-                // จัดกลุ่มเดียวกันไว้ด้วยกัน (เรียงตามชื่อกลุ่ม) แล้วเรียงตามเวลาเข้างานภายในกลุ่ม
                 dailyRows.sort((a, b) => grpKey(a).localeCompare(grpKey(b), 'th')
                     || (a.timeIn || '99').localeCompare(b.timeIn || '99') || a.name.localeCompare(b.name, 'th'));
-
-                const lateN = dailyRows.filter(x => x.late).length;
-                const noOutN = dailyRows.filter(x => x.timeIn && !x.timeOut).length;
-
-                const grpCount = {};
-                dailyRows.forEach(x => grpCount[grpName(x)] = (grpCount[grpName(x)] || 0) + 1);
-                const body = dailyRows.map((x, i) => `
-                    ${i === 0 || grpName(dailyRows[i - 1]) !== grpName(x)
-                        ? `<tr class="grp-row"><td colspan="7">📁 ${escHtml(grpName(x))} <span>(${grpCount[grpName(x)]} คน)</span></td></tr>` : ''}
-                    <tr class="${x.absent ? 'absent' : ''}">
-                        <td style="text-align:center">${i + 1}</td>
-                        <td><strong>${escHtml(x.name)}</strong></td>
-                        <td>${escHtml(x.department || '-')}<br><small style="color:#888">${escHtml(x.position || '')}</small></td>
-                        <td style="text-align:center;color:#059669;font-weight:700">${x.timeIn || '-'}</td>
-                        <td style="text-align:center;color:#dc2626;font-weight:700">${x.timeOut || '-'}</td>
-                        <td>${taskBoxesHtml(x.taskIn, x.taskOut)}</td>
-                        <td style="font-size:12px;color:${x.late ? '#ef4444' : '#64748b'}">${escHtml(x.note) || '<span style="color:#16a34a">ปกติ</span>'}</td>
-                    </tr>`).join('');
-
-                document.getElementById('reportContent').innerHTML = `
-                    <div class="daily-head">
-                        <div>
-                            <div class="daily-title">📋 สรุปการปฏิบัติงานประจำวัน</div>
-                            <div class="daily-sub">${formatDateThai(new Date(date + 'T12:00:00'))}</div>
-                        </div>
-                        <div class="daily-actions">
-                            <button class="btn-export prt" onclick="printDailyReport()">🖨️ พิมพ์ / PDF</button>
-                        </div>
-                    </div>
-                    <div class="daily-chips" style="margin-bottom:12px">
-                        <span class="daily-chip ok">ลงเวลา ${dailyRows.length} คน</span>
-                        <span class="daily-chip late">สาย ${lateN}</span>
-                        <span class="daily-chip miss">ยังไม่ลงเวลาออก ${noOutN}</span>
-                    </div>
-                    <div style="overflow-x:auto">
-                        <table class="data-table daily-table">
-                            <thead><tr>
-                                <th style="text-align:center">ลำดับ</th><th>ชื่อ-สกุล</th><th>กลุ่ม/ตำแหน่ง</th>
-                                <th style="text-align:center">เวลาเข้างาน</th><th style="text-align:center">เวลาออกงาน</th>
-                                <th>งานที่ได้รับมอบหมาย</th><th>หมายเหตุ</th>
-                            </tr></thead>
-                            <tbody>${body || '<tr><td colspan="7" class="empty-state">ไม่มีผู้ลงเวลาในวันนี้</td></tr>'}</tbody>
-                        </table>
-                    </div>`;
+                return true;
             } catch (e) {
                 console.error(e);
                 showToast('❌ ' + e.message, 'error');
+                return false;
             } finally { showLoading(false); }
+        }
+
+        async function doExportDaily(type) {
+            const date = document.getElementById('exportDailyDate').value;
+            if (!date) { showToast('กรุณาเลือกวันที่ก่อน', 'warning'); return; }
+            const success = await fetchDailyDataForExport(date);
+            if (success) {
+                if (type === 'print') printDailyReport();
+                else if (type === 'excel') exportDailyExcel();
+            }
         }
 
         function grpName(x) { return (x.department || '').trim() || 'ไม่ระบุกลุ่ม'; }
@@ -1838,7 +1750,7 @@
             const company = appSettings.companyName || '';
             const aoa = [[title], company ? [company] : [], [], DAILY_HEADERS, ...dailyMatrix()];
             const ws = XLSX.utils.aoa_to_sheet(aoa);
-            ws['!cols'] = [{ wch: 7 }, { wch: 26 }, { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 45 }, { wch: 45 }, { wch: 24 }];
+            ws['!cols'] = [{ wch: 7 }, { wch: 35 }, { wch: 20 }, { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 45 }, { wch: 45 }, { wch: 24 }];
             ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }];
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, dailyDate);
@@ -1869,7 +1781,7 @@
 <style>@page{size:A4 landscape;margin:12mm}body{font-family:'Sarabun',sans-serif;font-size:13px;color:#111}
 h2{margin:0;font-size:18px;text-align:center}.sub{text-align:center;margin:4px 0 14px;color:#444}
 table{width:100%;border-collapse:collapse}th,td{border:1px solid #555;padding:5px 6px;vertical-align:top}
-th{background:#eee}.c0,.c4,.c5{text-align:center;white-space:nowrap}.c6,.c7{white-space:pre-wrap;width:24%}
+th{background:#eee}.c0,.c4,.c5{text-align:center;white-space:nowrap}.c1,.c2,.c3{white-space:nowrap}.c6,.c7{white-space:pre-wrap;width:24%}
 tr{page-break-inside:avoid}tr.grp td{background:#f3f4f6;font-weight:700}</style></head><bo` + `dy>
 <h2>สรุปการปฏิบัติงานประจำวัน</h2>
 <div class="sub">${escHtml(appSettings.companyName || '')} — ${formatDateThai(new Date(dailyDate + 'T12:00:00'))}</div>
@@ -1929,15 +1841,23 @@ tr{page-break-inside:avoid}tr.grp td{background:#f3f4f6;font-weight:700}</style>
 
         function populateUserDropdowns() {
             const nonAdmins = allUsers.filter(u => u.role !== 'admin');
-            ['logUserFilter', 'reportUser'].forEach(id => {
+            ['logUserFilter'].forEach(id => {
                 const el = document.getElementById(id); if (!el) return;
-                const hasAll = id !== 'schUser';
-                el.innerHTML = (hasAll ? '<option value="">พนักงานทั้งหมด</option>' : '<option value="">-- เลือกพนักงาน --</option>')
+                el.innerHTML = '<option value="">พนักงานทั้งหมด</option>'
                     + nonAdmins.map(u => `<option value="${u.id}">${u.name} (${u.phone})</option>`).join('');
             });
         }
 
-        function showPage(name) {
+        const ADMIN_PAGES = ['logs', 'employees', 'settings'];
+        window.addEventListener('popstate', ev => {
+            const name = (ev.state && ev.state.page) || location.hash.replace('#', '');
+            if (ADMIN_PAGES.includes(name)) showPage(name, true);
+        });
+        function showPage(name, fromHistory = false) {
+            if (!ADMIN_PAGES.includes(name)) name = 'logs';
+            if (!fromHistory && location.hash !== '#' + name) {
+                try { history.pushState({ page: name }, '', '#' + name); } catch (e) { }
+            }
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             document.getElementById('page-' + name).classList.add('active');
@@ -1947,7 +1867,6 @@ tr{page-break-inside:avoid}tr.grp td{background:#f3f4f6;font-weight:700}</style>
             if (name === 'employees') renderEmployees();
 
             if (name === 'settings') loadSettings().then(fillSettingsForm);
-            if (name === 'report' && document.getElementById('reportType').value === 'daily') renderDailyReport();
         }
 
         function logout() { sessionStorage.clear(); window.location.href = 'index.html'; }

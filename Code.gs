@@ -170,6 +170,7 @@ function doGet(e) {
     if (action === 'getSchedules') return respond(getSchedules(e.parameter));
     if (action === 'getSettings')  return respond(getSettings());
     if (action === 'getPhoto')     return respond(getPhoto(e.parameter.id));
+    if (action === 'getPhotos')    return respond(getPhotos(e.parameter.ids));
     if (action === 'deleteLog')    return respond(deleteRow('logs', e.parameter.id));
     if (action === 'deleteUser')   return respond(deleteRow('users', e.parameter.id));
     return respond({success:false, error:'Unknown action'});
@@ -309,12 +310,42 @@ function getLogs(params) {
   const logs = [], rowIdx = [];
   for (let r = 0; r < n; r++) {
     const obj = {};
-    for (let c = 0; c < mStart; c++) if (headers[c]) obj[headers[c]] = left[r][c];
-    for (let c = 0; c < rightCount; c++) { const h = headers[mEnd + 1 + c]; if (h) obj[h] = right[r][c]; }
+    for (let c = 0; c < mStart; c++) {
+      if (headers[c]) {
+        let v = left[r][c];
+        if (typeof v === 'string' && v.startsWith("'")) v = v.substring(1);
+        obj[headers[c]] = v;
+      }
+    }
+    for (let c = 0; c < rightCount; c++) { 
+      const h = headers[mEnd + 1 + c]; 
+      if (h) {
+        let v = right[r][c];
+        if (typeof v === 'string' && v.startsWith("'")) v = v.substring(1);
+        obj[h] = v;
+      }
+    }
     if (!obj.id && !obj.userId) continue;
     obj.id = String(obj.id || '');
-    obj.date = String(obj.date || '');
-    obj.time = String(obj.time || '');
+    if (obj.date instanceof Date) {
+      const d = obj.date;
+      obj.date = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    } else {
+      let s = String(obj.date || '').trim(), mt, y, m, d;
+      if ((mt = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))) { y = +mt[1]; m = +mt[2]; d = +mt[3]; }
+      else if ((mt = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/))) { d = +mt[1]; m = +mt[2]; y = +mt[3]; }
+      if (y) {
+        if (y > 2400) y -= 543;
+        s = y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+      }
+      obj.date = s;
+    }
+    if (obj.time instanceof Date) {
+      const d = obj.time;
+      obj.time = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    } else {
+      obj.time = String(obj.time || '');
+    }
     obj.lateMin = String(obj.lateMin || '0');
     if (wantUser && String(obj.userId) !== wantUser) continue;
     if (params.dateFrom && obj.date < params.dateFrom) continue;
@@ -395,6 +426,43 @@ function addLog(data) {
 }
 
 // ดึงรูปของรายการเดียว (หน้าแอดมินกดดูรูปทีละรายการ)
+// ดึงรูปหลายรายการในคำขอเดียว: ids=1791...,1791...  → { id: photo }
+// อ่านเฉพาะคอลัมน์รูปของแถวที่ต้องการ (รวมแถวที่อยู่ใกล้กันเป็นช่วงเดียว)
+function getPhotos(idsParam) {
+  const want = String(idsParam || '').split(',').map(x => x.trim().replace(/^'/, '')).filter(Boolean).slice(0, 30);
+  const out = {};
+  if (!want.length) return {success:true, data:out};
+  const sheet = getSheet('logs');
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return {success:true, data:out};
+  const lastCol = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim());
+  const pIdx = headers.indexOf('photo');
+  if (pIdx < 0) return {success:true, data:out};
+
+  const wantSet = {};
+  want.forEach(id => wantSet[id] = true);
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  const hits = []; // [rowIndex(0-based), id]
+  for (let i = 0; i < ids.length; i++) {
+    const id = String(ids[i][0]).replace(/^'/, '');
+    if (wantSet[id]) hits.push([i, id]);
+  }
+  hits.sort((a, b) => a[0] - b[0]);
+
+  // รวมแถวที่ห่างกันไม่เกิน 20 แถวเป็นช่วงเดียว แล้วอ่านทีละช่วง
+  let k = 0;
+  while (k < hits.length) {
+    let j = k;
+    while (j + 1 < hits.length && hits[j + 1][0] - hits[j][0] <= 20) j++;
+    const from = hits[k][0], to = hits[j][0];
+    const block = sheet.getRange(from + 2, pIdx + 1, to - from + 1, 1).getValues();
+    for (let m = k; m <= j; m++) out[hits[m][1]] = String(block[hits[m][0] - from][0] || '');
+    k = j + 1;
+  }
+  return {success:true, data:out};
+}
+
 function getPhoto(id) {
   const sheet = getSheet('logs');
   const lastRow = sheet.getLastRow();
