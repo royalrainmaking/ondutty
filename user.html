@@ -7,7 +7,7 @@
     <title>ลงเวลางาน - WFH System</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <!-- face-api.js from CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
     <style>
@@ -890,6 +890,7 @@
         .task-error { color:#ef4444; font-weight:600; visibility:hidden; }
         .task-error.show { visibility:visible; }
     </style>
+    <script src="config.js"></script>
 </head>
 
 <body>
@@ -917,7 +918,7 @@
 
     <div class="loading-overlay" id="loadingOverlay">
         <div class="spinner"></div>
-        <div style="color:#10b981;font-weight:700">กำลังโหลด...</div>
+        <div style="color:#10b981;font-weight:700" id="loadingText">กำลังโหลด...</div>
     </div>
     <nav class="topnav">
         <button class="btn-back" id="btnBack" onclick="goBack()">
@@ -1093,7 +1094,8 @@
         let hasDoneCheckoutToday = false; // true = ลงออกแล้ววันนี้
 
         function init() {
-            API_URL = sessionStorage.getItem('wfh_api') || '';
+            API_URL = window.WFH_API_URL || sessionStorage.getItem('wfh_api') || '';
+            if (window.WFH_API_URL) sessionStorage.setItem('wfh_api', window.WFH_API_URL);
             const stored = sessionStorage.getItem('wfh_current');
             if (!stored || !API_URL) { window.location.href = 'index.html'; return; }
             currentUser = JSON.parse(stored);
@@ -1101,7 +1103,32 @@
             startLandingClock();
             loadProfile();
             window.logsPromise = loadTodayLogs();
+            getSettingsCached().catch(() => {});
+            // เริ่มโหลดโมเดลสแกนหน้าเบื้องหลัง (ไม่เปิดกล้อง) เพื่อให้กดเปิดกล้องแล้วพร้อมทันที
+            window.addEventListener('load', () => setTimeout(() => preloadFaceModels().catch(() => {}), 800));
             // Do NOT auto-start camera here; wait until user picks "ลงเวลา"
+        }
+
+        // ค่าตั้งค่า (เวลาเข้า-ออก) โหลดครั้งเดียวแล้วใช้ซ้ำ ไม่ต้องเรียกเซิร์ฟเวอร์ทุกครั้งที่กดลงเวลา
+        let settingsPromise = null;
+        function getSettingsCached() {
+            if (!settingsPromise) {
+                settingsPromise = api('?action=getSettings').catch(e => { settingsPromise = null; throw e; });
+            }
+            return settingsPromise;
+        }
+
+        // ใช้พิกัดเดิมถ้าเพิ่งได้มาไม่เกิน 2 นาที ไม่ต้องรอ GPS ใหม่ (เดิมรอได้ถึง 10 วินาที)
+        let gpsAt = 0;
+        async function ensureFreshGPS() {
+            if (gpsLat !== null) {
+                // มีพิกัดแล้ว: ใช้เลย ถ้าเก่าเกิน 10 นาทีให้อัปเดตเบื้องหลังโดยไม่ต้องรอ
+                if (Date.now() - gpsAt > 600000) getGPS().catch(() => {});
+                return;
+            }
+            try {
+                await Promise.race([getGPS(), new Promise((_, rej) => setTimeout(() => rej(new Error('gps timeout')), 4000))]);
+            } catch (e) { console.error('GPS re-fetch error', e); }
         }
 
         function startLandingClock() {
@@ -1148,7 +1175,7 @@
                     return;
                 }
                 navigator.geolocation.getCurrentPosition(p => {
-                    gpsLat = p.coords.latitude; gpsLng = p.coords.longitude;
+                    gpsLat = p.coords.latitude; gpsLng = p.coords.longitude; gpsAt = Date.now();
                     document.getElementById('gpsStatus').textContent = '📍 พบตำแหน่งของคุณ';
                     document.getElementById('gpsCoords').textContent = `${gpsLat.toFixed(5)}, ${gpsLng.toFixed(5)}`;
                     document.getElementById('mapArea').style.background = 'linear-gradient(135deg,#dbeafe,#bfdbfe)';
@@ -1182,12 +1209,32 @@
         const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
         const FACE_THRESHOLD = 0.5;   // euclidean distance threshold
 
+        // โหลดโมเดลทั้ง 3 ตัวพร้อมกัน และเริ่มโหลดล่วงหน้าตั้งแต่เปิดหน้า (ครั้งต่อไปเบราว์เซอร์จะจำไว้)
+        let faceModelsPromise = null;
+        function waitFaceApi() {
+            return new Promise((resolve, reject) => {
+                if (window.faceapi) return resolve();
+                let tries = 0;
+                const t = setInterval(() => {
+                    if (window.faceapi) { clearInterval(t); resolve(); }
+                    else if (++tries > 300) { clearInterval(t); reject(new Error('โหลดระบบสแกนใบหน้าไม่สำเร็จ')); }
+                }, 100);
+            });
+        }
+        function preloadFaceModels() {
+            if (!faceModelsPromise) {
+                faceModelsPromise = waitFaceApi().then(() => Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL),
+                    faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODELS_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URL)
+                ])).catch(e => { faceModelsPromise = null; throw e; });
+            }
+            return faceModelsPromise;
+        }
         async function loadFaceModels() {
             const statusEl = document.getElementById('faceStatus');
             statusEl.textContent = '🤖 กำลังโหลด AI Model...';
-            await faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL);
-            await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODELS_URL);
-            await faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URL);
+            await preloadFaceModels();
             statusEl.textContent = '📷 กำลังเปิดกล้อง...';
         }
 
@@ -1203,8 +1250,15 @@
             statusEl.style.display = 'block';
             statusEl.textContent = '🤖 กำลังโหลด AI Model...';
             try {
-                await loadFaceModels();
-                faceStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 360 } });
+                // เปิดกล้องไปพร้อมกับรอโมเดล (เดิมรอโมเดลเสร็จก่อนจึงเปิดกล้อง)
+                const camPromise = navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 360 } });
+                try {
+                    await loadFaceModels();
+                } catch (err) {
+                    camPromise.then(st => st.getTracks().forEach(t => t.stop())).catch(() => {});
+                    throw err;
+                }
+                faceStream = await camPromise;
                 video.srcObject = faceStream;
                 await new Promise(r => video.onloadedmetadata = r);
 
@@ -1684,8 +1738,14 @@
             btn.textContent = '✔ บันทึกและลงเวลา';
             btn.disabled = false;
 
-            // ช่องกรอกงานที่ได้รับมอบหมาย (ใช้ข้อความเดิมถ้าเคยพิมพ์ไว้แล้วกดยกเลิก)
+            // ช่องกรอกงาน: ตอนเข้างาน = งานที่ได้รับมอบหมาย, ตอนออกงาน = งานที่แล้วเสร็จ
+            document.getElementById('taskLabel').textContent = type === 'in'
+                ? '📝 วันนี้ได้รับมอบหมายให้ทำอะไร'
+                : '✅ งานที่แล้วเสร็จวันนี้';
             const input = document.getElementById('taskInput');
+            input.placeholder = type === 'in'
+                ? 'กรอกรายละเอียดงานที่ได้รับมอบหมาย เช่น ตรวจสอบเอกสาร..., ประสานงาน..., จัดทำรายงาน...'
+                : 'สรุปงานที่ทำแล้วเสร็จ หรือความคืบหน้า เช่น ทำ MMEL เสร็จ 80%...';
             input.value = pendingTaskText;
             input.classList.remove('invalid');
             document.getElementById('taskError').classList.remove('show');
@@ -1733,7 +1793,8 @@
             if (hasDoneCheckinToday) { showToast('⚠️ คุณลงเวลาเข้างานวันนี้ไปแล้ว 1 ครั้ง\nหากต้องการลงใหม่ กรุณาให้แอดมินลบรายการก่อน', 'warning'); return; }
 
             setBtnLoading('btnIn', 'spinIn', 'txtIn', true);
-            try { await getGPS(); } catch (e) { console.error('GPS re-fetch error', e); }
+            showLoading(true, '⏳ กำลังบันทึกเวลาเข้างาน...');
+            await ensureFreshGPS();
             const now = new Date();
             const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -1742,7 +1803,7 @@
             let adminCheckInTime = '08:30';
 
             try {
-                const settResp = await api('?action=getSettings');
+                const settResp = await getSettingsCached();
                 const sData = settResp.data || settResp;
                 if (sData.checkInTime) {
                     adminCheckInTime = sData.checkInTime;
@@ -1809,7 +1870,7 @@
                 window.logsPromise = loadTodayLogs();
                 await window.logsPromise;
                 handleClockinPage();
-            } finally { setBtnLoading('btnIn', 'spinIn', 'txtIn', false, '🟢 เข้างาน'); }
+            } finally { showLoading(false); setBtnLoading('btnIn', 'spinIn', 'txtIn', false, '🟢 เข้างาน'); }
         }
 
         async function doCheckOut(task = '') {
@@ -1819,14 +1880,15 @@
             if (!hasDoneCheckinToday) { showToast('คุณยังไม่ได้กดเข้างาน (ไม่สามารถออกงานได้)', 'error'); return; }
 
             setBtnLoading('btnOut', 'spinOut', 'txtOut', true);
-            try { await getGPS(); } catch (e) { console.error('GPS re-fetch error', e); }
+            showLoading(true, '⏳ กำลังบันทึกเวลาออกงาน...');
+            await ensureFreshGPS();
             const now = new Date();
             const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
             let earlyMin = 0;
             try {
-                const settResp = await api('?action=getSettings');
+                const settResp = await getSettingsCached();
                 const adminCheckOutTime = settResp.data.checkOutTime || '16:30';
 
                 const [targetH, targetM] = adminCheckOutTime.split(':').map(Number);
@@ -1864,7 +1926,7 @@
                 window.logsPromise = loadTodayLogs();
                 await window.logsPromise;
                 handleClockinPage();
-            } finally { setBtnLoading('btnOut', 'spinOut', 'txtOut', false, '🔴 ออกงาน'); }
+            } finally { showLoading(false); setBtnLoading('btnOut', 'spinOut', 'txtOut', false, '🔴 ออกงาน'); }
         }
 
         async function renderHistory() {
@@ -2128,7 +2190,8 @@
             setTimeout(() => t.className = 'toast', 3500);
         }
 
-        function showLoading(on) {
+        function showLoading(on, text) {
+            document.getElementById('loadingText').textContent = text || 'กำลังโหลด...';
             document.getElementById('loadingOverlay').className = 'loading-overlay' + (on ? ' show' : '');
         }
 

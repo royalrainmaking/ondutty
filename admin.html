@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - ระบบลงเวลา WFH</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
     <style>
@@ -114,6 +113,13 @@
             font-family: 'Sarabun', sans-serif;
             width: calc(100% - 16px)
         }
+
+        .data-sync { margin: 14px 12px 0; padding: 10px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; text-align: center; }
+        .btn-refresh { width: 100%; padding: 9px; border: none; border-radius: 10px; background: #e0f2fe; color: #0369a1; font-weight: 700; font-family: 'Sarabun', sans-serif; font-size: 13px; cursor: pointer; }
+        .btn-refresh:hover { background: #bae6fd; }
+        .data-sync-time { font-size: 11px; color: #94a3b8; margin-top: 6px; }
+        .btn-photo { border: 1px solid #e2e8f0; background: #fff; border-radius: 8px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-family: 'Sarabun', sans-serif; margin: 2px; }
+        .btn-photo:hover { background: #f1f5f9; }
 
         .nav-item:hover {
             background: #f8f8f8;
@@ -318,6 +324,16 @@
             color: #fff
         }
 
+        /* === Assigned task boxes === */
+        .task-boxes { display:flex; flex-direction:column; gap:6px; min-width:220px; max-width:380px; }
+        .task-box { border-radius:10px; padding:8px 10px; font-size:13px; line-height:1.5; border:1px solid; border-left-width:4px; white-space:pre-wrap; word-break:break-word; }
+        .task-box .tb-label { display:block; font-size:11px; font-weight:700; letter-spacing:.2px; margin-bottom:2px; white-space:normal; }
+        .task-box.in  { background:#f0fdf4; border-color:#bbf7d0; border-left-color:#22c55e; color:#14532d; }
+        .task-box.in .tb-label { color:#15803d; }
+        .task-box.out { background:#fff7ed; border-color:#fed7aa; border-left-color:#f97316; color:#7c2d12; }
+        .task-box.out .tb-label { color:#c2410c; }
+        .task-empty { color:#cbd5e1; }
+
         /* === Daily report === */
         .daily-head { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px; margin:8px 0 14px; }
         .daily-title { font-size:17px; font-weight:700; color:#1e293b; }
@@ -329,6 +345,8 @@
         .daily-chip.miss { background:#f1f5f9; color:#64748b; }
         .daily-table td.task-cell { white-space:pre-wrap; min-width:260px; max-width:480px; line-height:1.5; }
         .daily-table tr.absent td { color:#94a3b8; }
+        .daily-table tr.grp-row td { background:#eef2ff; color:#3730a3; font-weight:700; font-size:14px; padding:8px 14px; }
+        .daily-table tr.grp-row td span { color:#6366f1; font-weight:600; font-size:12px; }
         .daily-actions { display:flex; gap:8px; flex-wrap:wrap; }
         .btn-export.xls { background:#dcfce7; color:#15803d; }
         .btn-export.csv { background:#e0f2fe; color:#0369a1; }
@@ -691,6 +709,7 @@
             }
         }
     </style>
+    <script src="config.js"></script>
 </head>
 
 <body>
@@ -710,17 +729,20 @@
             <div class="user-role">Admin</div>
         </div>
         <div class="nav-section">เมนูผู้ดูแล</div>
-        <button class="nav-item active" onclick="showPage('dashboard')"><span class="icon">📊</span> แดชบอร์ด</button>
-        <button class="nav-item" onclick="showPage('logs')"><span class="icon">📋</span> ประวัติลงเวลา</button>
+        <button class="nav-item active" onclick="showPage('logs')"><span class="icon">📋</span> ประวัติลงเวลา</button>
         <button class="nav-item" onclick="showPage('employees')"><span class="icon">👥</span> จัดการพนักงาน</button>
         <button class="nav-item" onclick="showPage('report')"><span class="icon">📈</span> รายงานสรุป</button>
         <button class="nav-item" onclick="showPage('settings')"><span class="icon">⚙️</span> ตั้งค่าระบบ</button>
+        <div class="data-sync" id="dataSync">
+            <button class="btn-refresh" onclick="refreshAllData()">🔄 ดึงข้อมูลใหม่</button>
+            <div class="data-sync-time" id="dataSyncTime">ยังไม่ได้โหลดข้อมูล</div>
+        </div>
         <div class="sidebar-bottom"><button class="btn-logout" onclick="logout()">🚪 ออกจากระบบ</button></div>
     </div>
 
     <div class="main">
         <!-- DASHBOARD -->
-        <div class="page active" id="page-dashboard">
+        <div class="page" id="page-dashboard" style="display:none">
             <div class="dash-clock">
                 <div class="dash-who" id="dashWho">ผู้ดูแลระบบ: -</div>
                 <div class="dash-time" id="dashClock">--:--:--</div>
@@ -788,20 +810,19 @@
         </div>
 
         <!-- LOGS -->
-        <div class="page" id="page-logs">
+        <div class="page active" id="page-logs">
             <div class="section-card">
                 <div class="section-header">
                     <div class="section-title">ประวัติการลงเวลา (แอดมิน)</div>
-                    <button class="btn-export" onclick="exportCSV()">📊 Export CSV</button>
                 </div>
                 <div class="filter-row">
-                    <input type="text" placeholder="🔍 ค้นหาชื่อพนักงาน..." id="logSearch" oninput="filterLogs()">
+                    <input type="text" placeholder="🔍 ค้นหาชื่อพนักงาน หรืองาน..." id="logSearch" oninput="filterLogs()">
                     <select id="logUserFilter" onchange="filterLogs()">
                         <option value="">พนักงานทั้งหมด</option>
                     </select>
                     <input type="date" id="logDateFrom" onchange="loadLogs()">
                     <input type="date" id="logDateTo" onchange="loadLogs()">
-                    <button class="btn-primary" onclick="loadLogs()">🔍 โหลด</button>
+                    <button class="btn-primary" onclick="loadLogs()">🔍 ค้นหา</button>
                 </div>
                 <div id="logsSubtitle" style="color:#888;font-size:13px;margin-bottom:12px"></div>
                 <div style="overflow-x:auto">
@@ -811,6 +832,7 @@
                                 <th>วันที่</th>
                                 <th>พนักงาน</th>
                                 <th>เวลาเข้า-ออก</th>
+                                <th>งานที่ได้รับมอบหมาย</th>
                                 <th>สรุปเวลา</th>
                                 <th>ภาพ/ลายเซ็น</th>
                                 <th>GPS</th>
@@ -962,7 +984,8 @@
         let allLogs = [], allUsers = [], allSchedules = [], appSettings = {};
 
         async function init() {
-            API_URL = sessionStorage.getItem('wfh_api') || '';
+            API_URL = window.WFH_API_URL || sessionStorage.getItem('wfh_api') || '';
+            if (window.WFH_API_URL) sessionStorage.setItem('wfh_api', window.WFH_API_URL);
             const stored = sessionStorage.getItem('wfh_current');
             if (!stored || !API_URL) { window.location.href = 'index.html'; return; }
             currentUser = JSON.parse(stored);
@@ -977,8 +1000,12 @@
             if (salaryEl) salaryEl.value = monthVal;
             document.getElementById('reportMonth').value = monthVal;
             document.getElementById('reportDate').value = todayISO();
-            await Promise.all([loadUsers(), loadSettings()]);
-            renderDashStats();
+            showLoading(true);
+            try {
+                await Promise.all([loadUsers(), loadSettings(), ensureAllLogs()]);
+            } catch (e) { showToast('❌ โหลดข้อมูลไม่ได้: ' + e.message, 'error'); }
+            finally { showLoading(false); }
+            showPage('logs');
         }
 
         function startClock() {
@@ -1035,7 +1062,7 @@
 
                 // Sync with Attendance List
                 dashAttendanceData = allUsers.filter(u => u.role !== 'admin').map(u => {
-                    const logs = todayLogs.filter(l => String(l.userId) === String(u.id));
+                    const logs = todayLogs.filter(l => sameId(l.userId, u.id) || sameId(l.userId, u.phone));
                     const ci = logs.find(l => l.type === 'checkin');
                     const co = logs.find(l => l.type === 'checkout');
                     return { ...u, ci, co };
@@ -1080,19 +1107,95 @@
             }).join('');
         }
 
-        // --- LOGS ---
-        async function loadLogs() {
+        // ===== ข้อมูลกลาง: ดึงครั้งเดียวตอนเข้าหน้าแอดมิน แล้วทุกหน้าใช้ร่วมกัน =====
+        // (ไม่ดึงรูป เพื่อให้เร็ว — รูปโหลดเฉพาะตอนกดดู)
+        let logsStore = null, logsStorePromise = null;
+        function ensureAllLogs(force = false) {
+            if (force) { logsStore = null; logsStorePromise = null; }
+            if (logsStore) return Promise.resolve(logsStore);
+            if (!logsStorePromise) {
+                logsStorePromise = api('?action=getLogs').then(r => {
+                    logsStore = r.data || [];
+                    const t = new Date();
+                    document.getElementById('dataSyncTime').style.color = '';
+                    document.getElementById('dataSyncTime').textContent =
+                        `ข้อมูลล่าสุด ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')} น. (${logsStore.length} รายการ)`;
+                    return logsStore;
+                }).catch(e => { logsStorePromise = null; throw e; });
+            }
+            return logsStorePromise;
+        }
+        function showLogsError(e) {
+            const tbody = document.getElementById('logsBody');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="empty-state" style="color:#dc2626">❌ ดึงข้อมูลจากเซิร์ฟเวอร์ไม่ได้: ${String(e && e.message || e).replace(/</g, '&lt;')}
+                <br><small style="color:#64748b">ตรวจ URL ใน config.js ให้ตรงกับ Web app URL ล่าสุดใน Apps Script แล้วกด 🔄 ดึงข้อมูลใหม่</small></td></tr>`;
+            const st = document.getElementById('dataSyncTime');
+            if (st) { st.textContent = '❌ ดึงข้อมูลไม่สำเร็จ'; st.style.color = '#dc2626'; }
+        }
+        async function logsInRange(from, to, withPhoto = false) {
+            if (withPhoto) {
+                const r = await api(`?action=getLogs&dateFrom=${from}&dateTo=${to}&withPhoto=1`);
+                return r.data || [];
+            }
+            const all = await ensureAllLogs();
+            return all.filter(l => (!from || String(l.date) >= from) && (!to || String(l.date) <= to));
+        }
+        async function refreshAllData() {
             showLoading(true);
             try {
-                const df = document.getElementById('logDateFrom').value;
-                const dt = document.getElementById('logDateTo').value;
-                let path = '?action=getLogs';
-                if (df) path += '&dateFrom=' + df;
-                if (dt) path += '&dateTo=' + dt;
-                const r = await api(path);
-                allLogs = r.data || [];
+                await Promise.all([ensureAllLogs(true), loadUsers()]);
+                const active = document.querySelector('.page.active');
+                const name = active ? active.id.replace('page-', '') : 'logs';
+                if (name === 'logs') filterLogsFromStore();
+                if (name === 'report') runReport();
+                showToast('✅ ดึงข้อมูลใหม่แล้ว', 'success');
+            } catch (e) { showToast('❌ ' + e.message, 'error'); }
+            finally { showLoading(false); }
+        }
+
+        // รูปถ่าย: โหลดเฉพาะตอนกดดู แล้วจำไว้
+        const photoCache = {};
+        async function viewPhoto(id, btn) {
+            if (photoCache[id]) return previewImg(photoCache[id]);
+            const old = btn.textContent; btn.textContent = '⏳'; btn.disabled = true;
+            try {
+                const r = await api(`?action=getPhoto&id=${encodeURIComponent(id)}`);
+                const src = (r.data && r.data.photo) || '';
+                if (!src.startsWith('data:image')) { showToast('ไม่มีรูปในรายการนี้', 'warning'); return; }
+                photoCache[id] = src;
+                previewImg(src);
+            } catch (e) { showToast('❌ ' + e.message, 'error'); }
+            finally { btn.textContent = old; btn.disabled = false; }
+        }
+
+        // จับคู่รหัสพนักงานระหว่างชีต logs กับ users ให้ทนต่อรูปแบบที่ต่างกัน
+        // เช่น '0812345678 (ข้อความ) กับ 812345678 (ตัวเลข ศูนย์นำหน้าหาย)
+        function normId(v) { return String(v ?? '').replace(/^'/, '').trim().replace(/^0+/, ''); }
+        function normName(v) { return String(v ?? '').replace(/^'/, '').replace(/\s+/g, ' ').trim(); }
+        function sameId(a, b) { const x = normId(a); return x !== '' && x === normId(b); }
+        function findUserFor(uid, name) {
+            return allUsers.find(u => sameId(u.id, uid) || sameId(u.phone, uid))
+                || (name ? allUsers.find(u => normName(u.name) === normName(name)) : undefined);
+        }
+
+        // --- LOGS ---
+        function filterLogsFromStore() { loadLogs(); }
+        async function loadLogs() {
+            if (!logsStore) showLoading(true);
+            try {
+                const dfEl = document.getElementById('logDateFrom');
+                const dtEl = document.getElementById('logDateTo');
+                // ค่าเริ่มต้น: ตั้งแต่วันที่ 1 ของเดือนนี้ถึงวันนี้ (เดิมโหลดทั้งหมดพร้อมรูป ทำให้ช้ามาก)
+                if (!dfEl.value && !dtEl.value) {
+                    const t = todayISO();
+                    dfEl.value = t.slice(0, 8) + '01';
+                    dtEl.value = t;
+                }
+                allLogs = await logsInRange(dfEl.value, dtEl.value, true);
                 filterLogs();
             } catch (e) {
+                allLogs = [];
+                showLogsError(e);
                 showToast('❌ โหลดข้อมูลไม่ได้: ' + e.message, 'error');
             } finally { showLoading(false); }
         }
@@ -1102,7 +1205,7 @@
             const uf = document.getElementById('logUserFilter').value;
             const filtered = allLogs.filter(l => {
                 if (uf && String(l.userId) !== String(uf)) return false;
-                if (q && !(l.userName || '').toLowerCase().includes(q)) return false;
+                if (q && !((l.userName || '') + ' ' + (l.task || '')).toLowerCase().includes(q)) return false;
                 return true;
             });
 
@@ -1146,7 +1249,14 @@
 
             document.getElementById('logsSubtitle').textContent = `พบ ${sorted.length} รายการ (แยกเป็นรอบ)`;
             const tbody = document.getElementById('logsBody');
-            if (!sorted.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-state">ไม่พบข้อมูล</td></tr>'; return; }
+            if (!sorted.length) {
+                const total = logsStore ? logsStore.length : 0;
+                const df = document.getElementById('logDateFrom').value, dt = document.getElementById('logDateTo').value;
+                const latest = logsStore && logsStore.length ? logsStore.reduce((m, l) => String(l.date) > m ? String(l.date) : m, '') : '';
+                tbody.innerHTML = `<tr><td colspan="8" class="empty-state">ไม่พบข้อมูลในช่วง ${df ? formatDateShort(df) : '-'} ถึง ${dt ? formatDateShort(dt) : '-'}
+                    <br><small style="color:#64748b">ข้อมูลทั้งหมดในระบบ ${total} รายการ${latest ? ` · รายการล่าสุดวันที่ ${formatDateShort(latest)}` : ''}</small></td></tr>`;
+                return;
+            }
 
             tbody.innerHTML = sorted.map(s => {
                 const ci = s.ci;
@@ -1156,9 +1266,19 @@
                 const lateMin = (ci && ci.lateMin > 0) ? Number(ci.lateMin) : 0;
                 const earlyMin = (co && co.lateMin < 0) ? Math.abs(Number(co.lateMin)) : 0;
 
-                const isValidImg = (s) => s && s.length > 100 && s.startsWith('data:image');
-                const photoHtml = isValidImg(ci?.photo) ? `<img src="${ci.photo}" class="thumb-img" onclick="previewImg(this.src)" title="ภาพเข้างาน" onerror="this.style.display='none'">` : '';
-                const photoOutHtml = isValidImg(co?.photo) ? `<img src="${co.photo}" class="thumb-img" onclick="previewImg(this.src)" title="ภาพออกงาน" onerror="this.style.display='none'">` : '';
+                const renderImg = (log) => {
+                    if (!log) return '';
+                    if (log.photo && log.photo.startsWith('data:image')) {
+                        return `<img src="${log.photo}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #ddd" onclick="previewImg('${log.photo}')" title="${log.type==='checkin'?'เข้า':'ออก'}">`;
+                    }
+                    if (log.photo && log.photo.length > 10) {
+                        // Some base64 might not have data:image prefix saved?
+                        return `<img src="data:image/jpeg;base64,${log.photo}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #ddd" onclick="previewImg('data:image/jpeg;base64,${log.photo}')" title="${log.type==='checkin'?'เข้า':'ออก'}">`;
+                    }
+                    return `<button class="btn-photo" onclick="viewPhoto('${log.id}', this)">📷 ${log.type==='checkin'?'เข้า':'ออก'}</button>`;
+                };
+                const photoHtml = renderImg(ci);
+                const photoOutHtml = renderImg(co);
                 const mediaHtml = [photoHtml, photoOutHtml].filter(x => x).join(' ') || '-';
 
                 const mapInHtml = (ci && ci.lat) ? `<a href="https://maps.google.com/?q=${ci.lat},${ci.lng}" target="_blank" style="color:#16a34a;font-size:11px">📍 แผนที่เข้า</a>` : '';
@@ -1174,6 +1294,9 @@
                         hrsHtml = `<span style="color:#1d4ed8;font-weight:700">${Math.floor(diff / 60)} ชม. ${diff % 60} น.</span>`;
                     }
                 }
+
+                // งานที่ได้รับมอบหมาย (คอลัมน์ M) — ถ้าตอนออกงานกรอกต่างจากตอนเข้า แสดงทั้งคู่
+                const taskHtml = taskBoxesHtml(ci ? ci.task : '', co ? co.task : '');
 
                 const deleteHtml = [];
                 if (ci) deleteHtml.push(`<button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick="deleteLogItem('${ci.id}')">🗑️ เข้า</button>`);
@@ -1211,6 +1334,7 @@
                         <div style="color:#16a34a;font-size:13px;font-weight:700">🟢 เข้า: ${ciTime}</div>
                         <div style="color:#dc2626;font-size:13px;font-weight:700;margin-top:4px">🔴 ออก: ${coTime}</div>
                     </td>
+                    <td>${taskHtml}</td>
                     <td>
                         ${hrsHtml}
                         ${lateHtml}
@@ -1229,14 +1353,20 @@
             try {
                 await api('', 'POST', { action: 'deleteLog', id });
                 allLogs = allLogs.filter(l => String(l.id) !== String(id));
+                if (logsStore) logsStore = logsStore.filter(l => String(l.id) !== String(id));
                 filterLogs(); showToast('ลบสำเร็จ', 'success');
             } catch (e) { showToast('❌ ' + e.message, 'error'); }
             finally { showLoading(false); }
         }
 
         function exportCSV() {
-            let csv = 'วันที่,เวลา,พนักงาน,ประเภท,สถานที่,สาย(นาที)\n';
-            allLogs.forEach(l => { csv += `${l.date},${l.time},${l.userName},${l.type === 'checkin' ? 'เข้างาน' : 'ออกงาน'},${l.location || ''},${l.lateMin || 0}\n`; });
+            const q = v => `"${String(v ?? '').replace(/^'/, '').replace(/"/g, '""')}"`;
+            let csv = 'วันที่,เวลา,พนักงาน,ประเภท,สถานที่,สาย(นาที),งานที่ได้รับมอบหมาย,งานที่แล้วเสร็จ\r\n';
+            allLogs.forEach(l => {
+                const isIn = l.type === 'checkin';
+                csv += [l.date, l.time, l.userName, isIn ? 'เข้างาน' : 'ออกงาน', l.location || '', l.lateMin || 0,
+                        isIn ? (l.task || '') : '', isIn ? '' : (l.task || '')].map(q).join(',') + '\r\n';
+            });
             const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'timelog.csv'; a.click();
         }
@@ -1331,7 +1461,7 @@
                 const tbody = document.getElementById('schBody');
                 if (!allSchedules.length) { tbody.innerHTML = '<tr><td colspan="3" class="empty-state">ไม่มีตารางเวร</td></tr>'; return; }
                 tbody.innerHTML = allSchedules.sort((a, b) => b.from.localeCompare(a.from)).map(s => {
-                    const u = allUsers.find(x => String(x.id) === String(s.userId));
+                    const u = findUserFor(s.userId);
                     return `<tr><td>${s.from} - ${s.to}</td><td>${u ? u.name : s.userId}</td><td style="color:#f7931e;font-weight:700">${s.start} - ${s.end}</td></tr>`;
                 }).join('');
             } catch (e) { }
@@ -1357,11 +1487,10 @@
             const month = document.getElementById('salaryMonth').value; if (!month) return;
             showLoading(true);
             try {
-                const r = await api(`?action=getLogs&dateFrom=${month}-01&dateTo=${month}-31`);
-                const logs = r.data || [];
+                const logs = await logsInRange(`${month}-01`, `${month}-31`);
                 const tbody = document.getElementById('salaryBody');
                 tbody.innerHTML = allUsers.map(u => {
-                    const myLogs = logs.filter(l => String(l.userId) === String(u.id));
+                    const myLogs = logs.filter(l => sameId(l.userId, u.id) || sameId(l.userId, u.phone));
                     const checkins = myLogs.filter(l => l.type === 'checkin');
                     const worked = new Set(checkins.map(l => l.date)).size;
                     const totalLate = checkins.reduce((s, l) => s + (Number(l.lateMin) || 0), 0);
@@ -1413,11 +1542,10 @@
             const uf = document.getElementById('reportUser').value;
             if (!month) { showToast('กรุณาเลือกเดือนก่อน', 'warning'); return; }
 
-            showLoading(true);
+            if (!logsStore) showLoading(true);
             try {
-                const r = await api(`?action=getLogs&dateFrom=${month}-01&dateTo=${month}-31`);
-                let logs = r.data || [];
-                if (uf) logs = logs.filter(l => String(l.userId) === String(uf));
+                let logs = await logsInRange(`${month}-01`, `${month}-31`);
+                if (uf) logs = logs.filter(l => sameId(l.userId, uf));
 
                 // Group by user
                 const byUser = {};
@@ -1447,8 +1575,8 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                ${Object.keys(byUser).map(uid => allUsers.find(x => String(x.id) === String(uid)) || { id: uid, name: byUser[uid].name, phone: '' }).map(u => {
-                        const raw = byUser[u.id] || { ci: [], co: [] };
+                                ${Object.keys(byUser).map(uid => ({ uid, u: findUserFor(uid, byUser[uid].name) || { id: uid, name: byUser[uid].name, phone: '' } })).map(({ uid, u }) => {
+                        const raw = byUser[uid] || { ci: [], co: [] };
                         const worked = new Set(raw.ci.map(l => l.date)).size;
                         const lateCount = raw.ci.filter(l => Number(l.lateMin || 0) > 0).length;
                         const lateMins = raw.ci.reduce((s, l) => s + Math.max(0, Number(l.lateMin || 0)), 0);
@@ -1473,7 +1601,7 @@
                 usersToDisplay.forEach(uid => {
                     const data = byUser[uid];
                     if (!data) return;
-                    const u = allUsers.find(x => String(x.id) === String(uid)) || { name: data.name };
+                    const u = findUserFor(uid, data.name) || { name: data.name };
 
                     const workedDays = new Set(data.ci.map(l => l.date)).size;
                     const totalLate = data.ci.reduce((s, l) => s + Math.max(0, Number(l.lateMin || 0)), 0);
@@ -1540,6 +1668,23 @@
             } finally { showLoading(false); }
         }
 
+        // กล่องแสดงงาน: งานที่ได้รับมอบหมาย (ตอนเข้างาน, เขียว) / งานที่แล้วเสร็จ (ตอนออกงาน, ส้ม)
+        function taskBoxesHtml(taskIn, taskOut) {
+            const e = v => String(v ?? '').replace(/^'/, '').trim().replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            const a = e(taskIn), b = e(taskOut);
+            const boxes = [];
+            if (a) boxes.push(`<div class="task-box in"><span class="tb-label">🟢 งานที่ได้รับมอบหมาย</span>${a}</div>`);
+            if (b && b !== a) boxes.push(`<div class="task-box out"><span class="tb-label">✅ งานที่แล้วเสร็จ</span>${b}</div>`);
+            return boxes.length ? `<div class="task-boxes">${boxes.join('')}</div>` : '<span class="task-empty">-</span>';
+        }
+        // ข้อความสำหรับ Excel / CSV / พิมพ์
+        function taskPlainText(taskIn, taskOut) {
+            const a = String(taskIn ?? '').replace(/^'/, '').trim(), b = String(taskOut ?? '').replace(/^'/, '').trim();
+            if (a && b && b !== a) return `งานที่ได้รับมอบหมาย: ${a}\n\nงานที่แล้วเสร็จ: ${b}`;
+            if (b && !a) return `งานที่แล้วเสร็จ: ${b}`;
+            return a;
+        }
+
         // --- DAILY REPORT (รายชื่อ / เวลาเข้า / เวลาออก / งานที่ได้รับมอบหมาย) ---
         let dailyRows = [], dailyDate = '';
 
@@ -1579,10 +1724,9 @@
         async function renderDailyReport() {
             const date = document.getElementById('reportDate').value;
             if (!date) { showToast('กรุณาเลือกวันที่ก่อน', 'warning'); return; }
-            showLoading(true);
+            if (!logsStore) showLoading(true);
             try {
-                const r = await api(`?action=getLogs&dateFrom=${date}&dateTo=${date}`);
-                const logs = (r.data || []).filter(l => stripQ(l.date) === date);
+                const logs = (await logsInRange(date, date)).filter(l => stripQ(l.date) === date);
 
                 // จับคู่ เข้า/ออก ต่อคน (ใช้รายการแรกของแต่ละประเภท)
                 const byUser = {};
@@ -1599,15 +1743,14 @@
 
                 dailyDate = date;
                 dailyRows = ids.map(uid => {
-                    const u = staff.find(x => String(x.id) === uid) || {};
+                    const u = findUserFor(uid, (byUser[uid] || {}).name) || {};
                     const rec = byUser[uid] || {};
                     const ci = rec.ci, co = rec.co;
                     const late = ci ? Math.max(0, Number(stripQ(ci.lateMin)) || 0) : 0;
                     const early = co ? Math.abs(Math.min(0, Number(stripQ(co.lateMin)) || 0)) : 0;
                     const taskIn = ci ? stripQ(ci.task).trim() : '';
                     const taskOut = co ? stripQ(co.task).trim() : '';
-                    let task = taskIn;
-                    if (taskOut && taskOut !== taskIn) task = taskIn ? `${taskIn}\n(ตอนออกงาน) ${taskOut}` : taskOut;
+                    const task = taskPlainText(taskIn, taskOut);
 
                     const notes = [];
                     if (!ci && !co) notes.push('ไม่ได้ลงเวลา');
@@ -1622,25 +1765,30 @@
                         position: u.position || '',
                         timeIn: ci ? formatTime(ci.time) : '',
                         timeOut: co ? formatTime(co.time) : '',
-                        task,
+                        task, taskIn, taskOut,
                         note: notes.join(', ') || 'ปกติ',
                         absent: !ci && !co, late: late > 0
                     };
                 });
-                // เรียงตามเวลาเข้างาน
-                dailyRows.sort((a, b) => (a.timeIn || '99').localeCompare(b.timeIn || '99') || a.name.localeCompare(b.name, 'th'));
+                // จัดกลุ่มเดียวกันไว้ด้วยกัน (เรียงตามชื่อกลุ่ม) แล้วเรียงตามเวลาเข้างานภายในกลุ่ม
+                dailyRows.sort((a, b) => grpKey(a).localeCompare(grpKey(b), 'th')
+                    || (a.timeIn || '99').localeCompare(b.timeIn || '99') || a.name.localeCompare(b.name, 'th'));
 
                 const lateN = dailyRows.filter(x => x.late).length;
                 const noOutN = dailyRows.filter(x => x.timeIn && !x.timeOut).length;
 
+                const grpCount = {};
+                dailyRows.forEach(x => grpCount[grpName(x)] = (grpCount[grpName(x)] || 0) + 1);
                 const body = dailyRows.map((x, i) => `
+                    ${i === 0 || grpName(dailyRows[i - 1]) !== grpName(x)
+                        ? `<tr class="grp-row"><td colspan="7">📁 ${escHtml(grpName(x))} <span>(${grpCount[grpName(x)]} คน)</span></td></tr>` : ''}
                     <tr class="${x.absent ? 'absent' : ''}">
                         <td style="text-align:center">${i + 1}</td>
                         <td><strong>${escHtml(x.name)}</strong></td>
                         <td>${escHtml(x.department || '-')}<br><small style="color:#888">${escHtml(x.position || '')}</small></td>
                         <td style="text-align:center;color:#059669;font-weight:700">${x.timeIn || '-'}</td>
                         <td style="text-align:center;color:#dc2626;font-weight:700">${x.timeOut || '-'}</td>
-                        <td class="task-cell">${escHtml(x.task) || '<span style="color:#cbd5e1">-</span>'}</td>
+                        <td>${taskBoxesHtml(x.taskIn, x.taskOut)}</td>
                         <td style="font-size:12px;color:${x.late ? '#ef4444' : '#64748b'}">${escHtml(x.note) || '<span style="color:#16a34a">ปกติ</span>'}</td>
                     </tr>`).join('');
 
@@ -1651,8 +1799,6 @@
                             <div class="daily-sub">${formatDateThai(new Date(date + 'T12:00:00'))}</div>
                         </div>
                         <div class="daily-actions">
-                            <button class="btn-export xls" onclick="exportDailyExcel()">📥 Excel</button>
-                            <button class="btn-export csv" onclick="exportDailyCSV()">📄 CSV</button>
                             <button class="btn-export prt" onclick="printDailyReport()">🖨️ พิมพ์ / PDF</button>
                         </div>
                     </div>
@@ -1677,9 +1823,12 @@
             } finally { showLoading(false); }
         }
 
-        const DAILY_HEADERS = ['ลำดับ', 'ชื่อ-สกุล', 'กลุ่ม/ฝ่าย', 'ตำแหน่ง', 'เวลาเข้างาน', 'เวลาออกงาน', 'งานที่ได้รับมอบหมาย', 'หมายเหตุ'];
+        function grpName(x) { return (x.department || '').trim() || 'ไม่ระบุกลุ่ม'; }
+        function grpKey(x) { return (x.department || '').trim() || '\uffff'; } // ไม่ระบุกลุ่มไว้ท้ายสุด
+
+        const DAILY_HEADERS = ['ลำดับ', 'ชื่อ-สกุล', 'กลุ่ม/ฝ่าย', 'ตำแหน่ง', 'เวลาเข้างาน', 'เวลาออกงาน', 'งานที่ได้รับมอบหมาย', 'งานที่แล้วเสร็จ', 'หมายเหตุ'];
         function dailyMatrix() {
-            return dailyRows.map((x, i) => [i + 1, x.name, x.department, x.position, x.timeIn, x.timeOut, x.task, x.note]);
+            return dailyRows.map((x, i) => [i + 1, x.name, x.department, x.position, x.timeIn, x.timeOut, x.taskIn || '', x.taskOut || '', x.note]);
         }
 
         function exportDailyExcel() {
@@ -1689,8 +1838,8 @@
             const company = appSettings.companyName || '';
             const aoa = [[title], company ? [company] : [], [], DAILY_HEADERS, ...dailyMatrix()];
             const ws = XLSX.utils.aoa_to_sheet(aoa);
-            ws['!cols'] = [{ wch: 7 }, { wch: 26 }, { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 60 }, { wch: 24 }];
-            ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } }];
+            ws['!cols'] = [{ wch: 7 }, { wch: 26 }, { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 45 }, { wch: 45 }, { wch: 24 }];
+            ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }];
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, dailyDate);
             XLSX.writeFile(wb, `daily-report-${dailyDate}.xlsx`);
@@ -1707,20 +1856,24 @@
 
         function printDailyReport() {
             if (!dailyRows.length) { showToast('ยังไม่มีข้อมูลรายงาน', 'warning'); return; }
-            const rows = dailyMatrix().map(r => `<tr>${r.map((c, i) => `<td class="c${i}">${escHtml(c) || '-'}</td>`).join('')}</tr>`).join('');
+            const matrix = dailyMatrix();
+            const rows = matrix.map((r, i) => {
+                const g = grpName(dailyRows[i]);
+                const head = (i === 0 || grpName(dailyRows[i - 1]) !== g)
+                    ? `<tr class="grp"><td colspan="${DAILY_HEADERS.length}">กลุ่ม ${escHtml(g)}</td></tr>` : '';
+                return head + `<tr>${r.map((c, j) => `<td class="c${j}">${escHtml(c) || '-'}</td>`).join('')}</tr>`;
+            }).join('');
             const w = window.open('', '_blank');
             w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>daily-report-${dailyDate}</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
 <style>@page{size:A4 landscape;margin:12mm}body{font-family:'Sarabun',sans-serif;font-size:13px;color:#111}
 h2{margin:0;font-size:18px;text-align:center}.sub{text-align:center;margin:4px 0 14px;color:#444}
 table{width:100%;border-collapse:collapse}th,td{border:1px solid #555;padding:5px 6px;vertical-align:top}
-th{background:#eee}.c0,.c4,.c5{text-align:center;white-space:nowrap}.c6{white-space:pre-wrap}
-.sign{display:flex;justify-content:space-around;margin-top:40px;text-align:center}</style></head><bo` + `dy>
+th{background:#eee}.c0,.c4,.c5{text-align:center;white-space:nowrap}.c6,.c7{white-space:pre-wrap;width:24%}
+tr{page-break-inside:avoid}tr.grp td{background:#f3f4f6;font-weight:700}</style></head><bo` + `dy>
 <h2>สรุปการปฏิบัติงานประจำวัน</h2>
 <div class="sub">${escHtml(appSettings.companyName || '')} — ${formatDateThai(new Date(dailyDate + 'T12:00:00'))}</div>
 <table><thead><tr>${DAILY_HEADERS.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
-<div class="sign"><div>ลงชื่อ ...................................<br>(${escHtml(appSettings.supervisorName || '')})<br>ผู้ตรวจสอบ</div>
-<div>ลงชื่อ ...................................<br>(${escHtml(appSettings.approverName || '')})<br>ผู้อนุมัติ</div></div>
 </bo` + `dy></html>`);
             w.document.close();
             w.onload = () => w.print();
@@ -1788,11 +1941,11 @@ th{background:#eee}.c0,.c4,.c5{text-align:center;white-space:nowrap}.c6{white-sp
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             document.getElementById('page-' + name).classList.add('active');
-            const pages = ['dashboard', 'logs', 'employees', 'report', 'settings'];
+            const pages = ['logs', 'employees', 'report', 'settings'];
             document.querySelectorAll('.nav-item')[pages.indexOf(name)]?.classList.add('active');
             if (name === 'logs') loadLogs();
             if (name === 'employees') renderEmployees();
-            if (name === 'dashboard') renderDashStats();
+
             if (name === 'settings') loadSettings().then(fillSettingsForm);
             if (name === 'report' && document.getElementById('reportType').value === 'daily') renderDailyReport();
         }

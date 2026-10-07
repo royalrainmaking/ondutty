@@ -11,13 +11,32 @@
 
 const SS_ID = '10XtFPQ4yi4_q8onBaN8W9RRgWZ-AvosadBrhvY2fa2c';
 
+// เปิดไฟล์ Sheet ครั้งเดียวต่อคำขอ แล้วใช้ซ้ำ (เดิมเปิดใหม่ทุกครั้งที่เรียก getSheet)
+let _ss = null;
+const _sheetCache = {};
+function getSS() {
+  if (!_ss) _ss = SpreadsheetApp.openById(SS_ID);
+  return _ss;
+}
+
 function getSheet(name) {
-  const ss = SpreadsheetApp.openById(SS_ID);
+  if (_sheetCache[name]) return _sheetCache[name];
+  const ss = getSS();
   let sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
   }
+  _sheetCache[name] = sheet;
   return sheet;
+}
+
+// ตรวจโครงสร้างชีตแค่ครั้งแรก แล้วจำไว้ 6 ชั่วโมง (เดิมตรวจทุกคำขอ)
+const INIT_CACHE_KEY = 'sheets_ready_v3';
+function ensureInit() {
+  const cache = CacheService.getScriptCache();
+  if (cache.get(INIT_CACHE_KEY)) return;
+  initSheets();
+  cache.put(INIT_CACHE_KEY, '1', 21600);
 }
 
 function initSheets() {
@@ -68,6 +87,7 @@ function onOpen() {
 function setupSheets() {
   const ui = SpreadsheetApp.getUi();
   initSheets();
+  CacheService.getScriptCache().put(INIT_CACHE_KEY, '1', 21600);
 
   // จัดรูปแบบหัวตาราง + ตรึงแถวแรก ทุกชีต
   const names = ['users', 'logs', 'schedules', 'settings'];
@@ -143,12 +163,13 @@ function respond(data) {
 
 function doGet(e) {
   try {
-    initSheets();
+    ensureInit();
     const action = e.parameter.action;
     if (action === 'getUsers')     return respond(getUsers());
     if (action === 'getLogs')      return respond(getLogs(e.parameter));
     if (action === 'getSchedules') return respond(getSchedules(e.parameter));
     if (action === 'getSettings')  return respond(getSettings());
+    if (action === 'getPhoto')     return respond(getPhoto(e.parameter.id));
     if (action === 'deleteLog')    return respond(deleteRow('logs', e.parameter.id));
     if (action === 'deleteUser')   return respond(deleteRow('users', e.parameter.id));
     return respond({success:false, error:'Unknown action'});
@@ -159,7 +180,7 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    initSheets();
+    ensureInit();
     const data = JSON.parse(e.postData.contents);
     const action = data.action;
     if (action === 'addLog')        return respond(addLog(data));
@@ -178,8 +199,9 @@ function doPost(e) {
 // ---- USERS ----
 function getUsers() {
   const sheet = getSheet('users');
-  const data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return {success:true, data:[]};
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return {success:true, data:[]};
+  const data = sheet.getRange(1, 1, lastRow, sheet.getLastColumn()).getValues();
   const headers = data[0];
   const users = data.slice(1).map(row => {
     const obj = {};
@@ -265,22 +287,50 @@ function changePassword(data) {
 
 // ---- LOGS ----
 function getLogs(params) {
+  // อ่านเฉพาะคอลัมน์ข้อมูล ไม่อ่านคอลัมน์รูป/ลายเซ็น (J,K) ซึ่งหนักมาก
+  // ส่ง withPhoto=1 มาเมื่อหน้าไหนต้องแสดงรูปจริงๆ จึงจะอ่านรูปเฉพาะแถวที่ตรงเงื่อนไข
+  params = params || {};
   const sheet = getSheet('logs');
-  const data = sheet.getDataRange().getDisplayValues();
-  if (data.length <= 1) return {success:true, data:[]};
-  const headers = data[0];
-  let logs = data.slice(1).map(row => {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return {success:true, data:[]};
+  const lastCol = sheet.getLastColumn();
+  const n = lastRow - 1;
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim());
+
+  const mediaIdx = ['photo','signature'].map(h => headers.indexOf(h)).filter(i => i >= 0);
+  const mStart = mediaIdx.length ? Math.min.apply(null, mediaIdx) : lastCol; // 0-based
+  const mEnd   = mediaIdx.length ? Math.max.apply(null, mediaIdx) : lastCol - 1;
+
+  const left  = mStart > 0 ? sheet.getRange(2, 1, n, mStart).getValues() : [];
+  const rightCount = lastCol - (mEnd + 1);
+  const right = rightCount > 0 ? sheet.getRange(2, mEnd + 2, n, rightCount).getValues() : [];
+
+  const wantUser = params.userId ? String(params.userId) : '';
+  const logs = [], rowIdx = [];
+  for (let r = 0; r < n; r++) {
     const obj = {};
-    headers.forEach((h,i) => obj[h] = (row[i] === '' || row[i] === null) ? '' : row[i]);
-    obj.id = String(obj.id);
-    obj.date = String(obj.date);
-    obj.time = String(obj.time);
+    for (let c = 0; c < mStart; c++) if (headers[c]) obj[headers[c]] = left[r][c];
+    for (let c = 0; c < rightCount; c++) { const h = headers[mEnd + 1 + c]; if (h) obj[h] = right[r][c]; }
+    if (!obj.id && !obj.userId) continue;
+    obj.id = String(obj.id || '');
+    obj.date = String(obj.date || '');
+    obj.time = String(obj.time || '');
     obj.lateMin = String(obj.lateMin || '0');
-    return obj;
-  });
-  if (params && params.userId)   logs = logs.filter(l => String(l.userId) === String(params.userId));
-  if (params && params.dateFrom) logs = logs.filter(l => String(l.date) >= params.dateFrom);
-  if (params && params.dateTo)   logs = logs.filter(l => String(l.date) <= params.dateTo);
+    if (wantUser && String(obj.userId) !== wantUser) continue;
+    if (params.dateFrom && obj.date < params.dateFrom) continue;
+    if (params.dateTo && obj.date > params.dateTo) continue;
+    mediaIdx.forEach(i => obj[headers[i]] = '');
+    logs.push(obj); rowIdx.push(r);
+  }
+
+  if (String(params.withPhoto) === '1' && mediaIdx.length && logs.length) {
+    const minR = Math.min.apply(null, rowIdx), maxR = Math.max.apply(null, rowIdx);
+    const block = sheet.getRange(minR + 2, mStart + 1, maxR - minR + 1, mEnd - mStart + 1).getValues();
+    logs.forEach((obj, k) => {
+      const row = block[rowIdx[k] - minR];
+      mediaIdx.forEach(i => obj[headers[i]] = String(row[i - mStart] || ''));
+    });
+  }
   return {success:true, data:logs};
 }
 
@@ -293,14 +343,18 @@ function addLog(data) {
   // ── Server-side duplicate guard ──────────────────────────────────────────
   // ป้องกันบันทึก checkin หรือ checkout ซ้ำในวันเดียวกัน
   if (logDate && (logType === 'checkin' || logType === 'checkout')) {
-    const allLogs = sheet.getDataRange().getDisplayValues();
-    if (allLogs.length > 1) {
-      const headers = allLogs[0]; // ['id','userId','userName','date','time','type',...]
+    // อ่านเฉพาะคอลัมน์ B–F (userId..type) ของ 300 แถวล่าสุด
+    // (แถวถูกเพิ่มต่อท้ายตามเวลา รายการของวันนี้จึงอยู่ท้ายชีตเสมอ)
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      const headers = sheet.getRange(1, 2, 1, 5).getValues()[0]; // userId,userName,date,time,type
+      const take = Math.min(300, lastRow - 1);
+      const allLogs = sheet.getRange(lastRow - take + 1, 2, take, 5).getValues();
       const userIdIdx = headers.indexOf('userId');
       const dateIdx   = headers.indexOf('date');
       const typeIdx   = headers.indexOf('type');
 
-      const duplicate = allLogs.slice(1).some(row => {
+      const duplicate = allLogs.some(row => {
         const rowUserId = String(row[userIdIdx] || '').replace(/^'/, '');
         const rowDate   = String(row[dateIdx]   || '').replace(/^'/, '');
         const rowType   = String(row[typeIdx]   || '').replace(/^'/, '');
@@ -340,11 +394,32 @@ function addLog(data) {
   return {success:true, id: id.replace(/^'/, '')};
 }
 
+// ดึงรูปของรายการเดียว (หน้าแอดมินกดดูรูปทีละรายการ)
+function getPhoto(id) {
+  const sheet = getSheet('logs');
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return {success:false, error:'ไม่พบรายการ'};
+  const lastCol = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim());
+  const pIdx = headers.indexOf('photo');
+  if (pIdx < 0) return {success:false, error:'ไม่มีคอลัมน์รูป'};
+  const want = String(id || '').replace(/^'/, '');
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = ids.length - 1; i >= 0; i--) {   // รายการใหม่อยู่ท้าย ค้นจากท้ายขึ้นไป
+    if (String(ids[i][0]).replace(/^'/, '') === want) {
+      const photo = String(sheet.getRange(i + 2, pIdx + 1).getValue() || '');
+      return {success:true, data:{photo: photo}};
+    }
+  }
+  return {success:false, error:'ไม่พบรายการ'};
+}
+
 // ---- SCHEDULES ----
 function getSchedules(params) {
   const sheet = getSheet('schedules');
-  const data = sheet.getDataRange().getDisplayValues();
-  if (data.length <= 1) return {success:true, data:[]};
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return {success:true, data:[]};
+  const data = sheet.getRange(1, 1, lastRow, sheet.getLastColumn()).getValues();
   const headers = data[0];
   let schedules = data.slice(1).map(row => {
     const obj = {};
@@ -375,8 +450,9 @@ function saveSchedule(data) {
 // ---- SETTINGS ----
 function getSettings() {
   const sheet = getSheet('settings');
-  const data = sheet.getDataRange().getDisplayValues();
-  if (data.length <= 1) return {success:true, data:{}};
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return {success:true, data:{}};
+  const data = sheet.getRange(1, 1, lastRow, sheet.getLastColumn()).getValues();
   const settings = {};
   data.slice(1).forEach(row => { if(row[0]) settings[row[0]] = row[1]; });
   return {success:true, data:settings};
@@ -399,8 +475,12 @@ function saveSettings(data) {
 // ---- GENERIC DELETE ----
 function deleteRow(sheetName, id) {
   const sheet = getSheet(sheetName);
-  const data = sheet.getDataRange().getValues();
-  const rowIdx = data.findIndex((row,i) => i > 0 && String(row[0]) === String(id));
-  if (rowIdx > 0) sheet.deleteRow(rowIdx+1);
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return {success:true};
+  // อ่านเฉพาะคอลัมน์ id (A) ไม่ต้องอ่านทั้งชีต
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  const want = String(id).replace(/^'/, '');
+  const idx = ids.findIndex(r => String(r[0]).replace(/^'/, '') === want);
+  if (idx >= 0) sheet.deleteRow(idx + 2);
   return {success:true};
 }
