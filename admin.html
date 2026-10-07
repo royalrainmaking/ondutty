@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - ระบบลงเวลา WFH</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
     <style>
@@ -315,6 +317,22 @@
             background: #0284c7;
             color: #fff
         }
+
+        /* === Daily report === */
+        .daily-head { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px; margin:8px 0 14px; }
+        .daily-title { font-size:17px; font-weight:700; color:#1e293b; }
+        .daily-sub { font-size:13px; color:#64748b; margin-top:2px; }
+        .daily-chips { display:flex; gap:8px; flex-wrap:wrap; }
+        .daily-chip { font-size:12px; font-weight:700; padding:5px 10px; border-radius:999px; background:#f1f5f9; color:#334155; }
+        .daily-chip.ok { background:#dcfce7; color:#15803d; }
+        .daily-chip.late { background:#fee2e2; color:#b91c1c; }
+        .daily-chip.miss { background:#f1f5f9; color:#64748b; }
+        .daily-table td.task-cell { white-space:pre-wrap; min-width:260px; max-width:480px; line-height:1.5; }
+        .daily-table tr.absent td { color:#94a3b8; }
+        .daily-actions { display:flex; gap:8px; flex-wrap:wrap; }
+        .btn-export.xls { background:#dcfce7; color:#15803d; }
+        .btn-export.csv { background:#e0f2fe; color:#0369a1; }
+        .btn-export.prt { background:#f1f5f9; color:#334155; }
 
         .btn-export {
             background: #dcfce7;
@@ -833,17 +851,21 @@
             <div class="section-card">
                 <div class="section-header">
                     <div class="section-title">รายงานสรุปการลงเวลา</div>
-                    <button class="btn-export" onclick="window.print()">🖨️ พิมพ์</button>
+                    <button class="btn-export" id="btnPrintMonthly" onclick="window.print()" style="display:none">🖨️ พิมพ์</button>
                 </div>
                 <div class="filter-row">
-                    <select id="reportType">
-                        <option value="person">สรุปรายบุคคล</option>
+                    <select id="reportType" onchange="onReportTypeChange()">
+                        <option value="daily">สรุปรายวัน (เข้า-ออก + งานที่ได้รับมอบหมาย)</option>
+                        <option value="person">สรุปรายบุคคล (รายเดือน)</option>
                     </select>
-                    <input type="month" id="reportMonth">
-                    <select id="reportUser">
+                    <button class="btn-sm" id="dailyPrev" onclick="shiftDailyDate(-1)" title="วันก่อนหน้า">◀</button>
+                    <input type="date" id="reportDate" onchange="renderDailyReport()">
+                    <button class="btn-sm" id="dailyNext" onclick="shiftDailyDate(1)" title="วันถัดไป">▶</button>
+                    <input type="month" id="reportMonth" style="display:none">
+                    <select id="reportUser" style="display:none">
                         <option value="">พนักงานทั้งหมด</option>
                     </select>
-                    <button class="btn-dark" onclick="renderReport()">🔍 ดึงรายงาน</button>
+                    <button class="btn-dark" onclick="runReport()">🔍 ดึงรายงาน</button>
                 </div>
                 <div id="reportContent"></div>
             </div>
@@ -954,6 +976,7 @@
             const salaryEl = document.getElementById('salaryMonth');
             if (salaryEl) salaryEl.value = monthVal;
             document.getElementById('reportMonth').value = monthVal;
+            document.getElementById('reportDate').value = todayISO();
             await Promise.all([loadUsers(), loadSettings()]);
             renderDashStats();
         }
@@ -1424,7 +1447,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                ${allUsers.filter(u => u.role !== 'admin').map(u => {
+                                ${Object.keys(byUser).map(uid => allUsers.find(x => String(x.id) === String(uid)) || { id: uid, name: byUser[uid].name, phone: '' }).map(u => {
                         const raw = byUser[u.id] || { ci: [], co: [] };
                         const worked = new Set(raw.ci.map(l => l.date)).size;
                         const lateCount = raw.ci.filter(l => Number(l.lateMin || 0) > 0).length;
@@ -1509,11 +1532,198 @@
                     </div>`;
                 });
 
+                if (!Object.keys(byUser).length) html = '';
                 document.getElementById('reportContent').innerHTML = html || '<div class="empty-state">ไม่พบข้อมูลในเดือนนี้</div>';
             } catch (e) {
                 console.error(e);
                 showToast('❌ ' + e.message, 'error');
             } finally { showLoading(false); }
+        }
+
+        // --- DAILY REPORT (รายชื่อ / เวลาเข้า / เวลาออก / งานที่ได้รับมอบหมาย) ---
+        let dailyRows = [], dailyDate = '';
+
+        function todayISO() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function onReportTypeChange() {
+            const daily = document.getElementById('reportType').value === 'daily';
+            ['dailyPrev', 'reportDate', 'dailyNext'].forEach(id => document.getElementById(id).style.display = daily ? '' : 'none');
+            ['reportMonth', 'reportUser'].forEach(id => document.getElementById(id).style.display = daily ? 'none' : '');
+            document.getElementById('btnPrintMonthly').style.display = daily ? 'none' : '';
+            document.getElementById('reportContent').innerHTML = '';
+            if (daily) renderDailyReport();
+        }
+
+        function runReport() {
+            if (document.getElementById('reportType').value === 'daily') renderDailyReport();
+            else renderReport();
+        }
+
+        function shiftDailyDate(n) {
+            const el = document.getElementById('reportDate');
+            const d = new Date((el.value || todayISO()) + 'T12:00:00');
+            d.setDate(d.getDate() + n);
+            el.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            renderDailyReport();
+        }
+
+        function escHtml(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function stripQ(v) { return String(v ?? '').replace(/^'/, ''); }
+
+        async function renderDailyReport() {
+            const date = document.getElementById('reportDate').value;
+            if (!date) { showToast('กรุณาเลือกวันที่ก่อน', 'warning'); return; }
+            showLoading(true);
+            try {
+                const r = await api(`?action=getLogs&dateFrom=${date}&dateTo=${date}`);
+                const logs = (r.data || []).filter(l => stripQ(l.date) === date);
+
+                // จับคู่ เข้า/ออก ต่อคน (ใช้รายการแรกของแต่ละประเภท)
+                const byUser = {};
+                logs.forEach(l => {
+                    const uid = stripQ(l.userId);
+                    if (!byUser[uid]) byUser[uid] = { ci: null, co: null, name: stripQ(l.userName) };
+                    if (l.type === 'checkin' && !byUser[uid].ci) byUser[uid].ci = l;
+                    if (l.type === 'checkout' && !byUser[uid].co) byUser[uid].co = l;
+                });
+
+                // แสดงเฉพาะคนที่ลงเวลาในวันนั้น
+                const staff = allUsers;
+                const ids = Object.keys(byUser);
+
+                dailyDate = date;
+                dailyRows = ids.map(uid => {
+                    const u = staff.find(x => String(x.id) === uid) || {};
+                    const rec = byUser[uid] || {};
+                    const ci = rec.ci, co = rec.co;
+                    const late = ci ? Math.max(0, Number(stripQ(ci.lateMin)) || 0) : 0;
+                    const early = co ? Math.abs(Math.min(0, Number(stripQ(co.lateMin)) || 0)) : 0;
+                    const taskIn = ci ? stripQ(ci.task).trim() : '';
+                    const taskOut = co ? stripQ(co.task).trim() : '';
+                    let task = taskIn;
+                    if (taskOut && taskOut !== taskIn) task = taskIn ? `${taskIn}\n(ตอนออกงาน) ${taskOut}` : taskOut;
+
+                    const notes = [];
+                    if (!ci && !co) notes.push('ไม่ได้ลงเวลา');
+                    if (late > 0) notes.push(`สาย ${late} นาที`);
+                    if (early > 0) notes.push(`ออกก่อน ${early} นาที`);
+                    if (ci && !co) notes.push('ยังไม่ลงเวลาออก');
+                    if (!ci && co) notes.push('ไม่มีเวลาเข้า');
+
+                    return {
+                        name: u.name || rec.name || uid,
+                        department: u.department || '',
+                        position: u.position || '',
+                        timeIn: ci ? formatTime(ci.time) : '',
+                        timeOut: co ? formatTime(co.time) : '',
+                        task,
+                        note: notes.join(', ') || 'ปกติ',
+                        absent: !ci && !co, late: late > 0
+                    };
+                });
+                // เรียงตามเวลาเข้างาน
+                dailyRows.sort((a, b) => (a.timeIn || '99').localeCompare(b.timeIn || '99') || a.name.localeCompare(b.name, 'th'));
+
+                const lateN = dailyRows.filter(x => x.late).length;
+                const noOutN = dailyRows.filter(x => x.timeIn && !x.timeOut).length;
+
+                const body = dailyRows.map((x, i) => `
+                    <tr class="${x.absent ? 'absent' : ''}">
+                        <td style="text-align:center">${i + 1}</td>
+                        <td><strong>${escHtml(x.name)}</strong></td>
+                        <td>${escHtml(x.department || '-')}<br><small style="color:#888">${escHtml(x.position || '')}</small></td>
+                        <td style="text-align:center;color:#059669;font-weight:700">${x.timeIn || '-'}</td>
+                        <td style="text-align:center;color:#dc2626;font-weight:700">${x.timeOut || '-'}</td>
+                        <td class="task-cell">${escHtml(x.task) || '<span style="color:#cbd5e1">-</span>'}</td>
+                        <td style="font-size:12px;color:${x.late ? '#ef4444' : '#64748b'}">${escHtml(x.note) || '<span style="color:#16a34a">ปกติ</span>'}</td>
+                    </tr>`).join('');
+
+                document.getElementById('reportContent').innerHTML = `
+                    <div class="daily-head">
+                        <div>
+                            <div class="daily-title">📋 สรุปการปฏิบัติงานประจำวัน</div>
+                            <div class="daily-sub">${formatDateThai(new Date(date + 'T12:00:00'))}</div>
+                        </div>
+                        <div class="daily-actions">
+                            <button class="btn-export xls" onclick="exportDailyExcel()">📥 Excel</button>
+                            <button class="btn-export csv" onclick="exportDailyCSV()">📄 CSV</button>
+                            <button class="btn-export prt" onclick="printDailyReport()">🖨️ พิมพ์ / PDF</button>
+                        </div>
+                    </div>
+                    <div class="daily-chips" style="margin-bottom:12px">
+                        <span class="daily-chip ok">ลงเวลา ${dailyRows.length} คน</span>
+                        <span class="daily-chip late">สาย ${lateN}</span>
+                        <span class="daily-chip miss">ยังไม่ลงเวลาออก ${noOutN}</span>
+                    </div>
+                    <div style="overflow-x:auto">
+                        <table class="data-table daily-table">
+                            <thead><tr>
+                                <th style="text-align:center">ลำดับ</th><th>ชื่อ-สกุล</th><th>กลุ่ม/ตำแหน่ง</th>
+                                <th style="text-align:center">เวลาเข้างาน</th><th style="text-align:center">เวลาออกงาน</th>
+                                <th>งานที่ได้รับมอบหมาย</th><th>หมายเหตุ</th>
+                            </tr></thead>
+                            <tbody>${body || '<tr><td colspan="7" class="empty-state">ไม่มีผู้ลงเวลาในวันนี้</td></tr>'}</tbody>
+                        </table>
+                    </div>`;
+            } catch (e) {
+                console.error(e);
+                showToast('❌ ' + e.message, 'error');
+            } finally { showLoading(false); }
+        }
+
+        const DAILY_HEADERS = ['ลำดับ', 'ชื่อ-สกุล', 'กลุ่ม/ฝ่าย', 'ตำแหน่ง', 'เวลาเข้างาน', 'เวลาออกงาน', 'งานที่ได้รับมอบหมาย', 'หมายเหตุ'];
+        function dailyMatrix() {
+            return dailyRows.map((x, i) => [i + 1, x.name, x.department, x.position, x.timeIn, x.timeOut, x.task, x.note]);
+        }
+
+        function exportDailyExcel() {
+            if (!dailyRows.length) { showToast('ยังไม่มีข้อมูลรายงาน', 'warning'); return; }
+            if (typeof XLSX === 'undefined') { showToast('โหลดตัวสร้าง Excel ไม่ได้ จะ export เป็น CSV แทน', 'warning'); exportDailyCSV(); return; }
+            const title = `สรุปการปฏิบัติงานประจำวัน ${formatDateThai(new Date(dailyDate + 'T12:00:00'))}`;
+            const company = appSettings.companyName || '';
+            const aoa = [[title], company ? [company] : [], [], DAILY_HEADERS, ...dailyMatrix()];
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+            ws['!cols'] = [{ wch: 7 }, { wch: 26 }, { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 60 }, { wch: 24 }];
+            ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } }];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, dailyDate);
+            XLSX.writeFile(wb, `daily-report-${dailyDate}.xlsx`);
+        }
+
+        function exportDailyCSV() {
+            if (!dailyRows.length) { showToast('ยังไม่มีข้อมูลรายงาน', 'warning'); return; }
+            const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+            const csv = [DAILY_HEADERS, ...dailyMatrix()].map(r => r.map(q).join(',')).join('\r\n');
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob); a.download = `daily-report-${dailyDate}.csv`; a.click();
+        }
+
+        function printDailyReport() {
+            if (!dailyRows.length) { showToast('ยังไม่มีข้อมูลรายงาน', 'warning'); return; }
+            const rows = dailyMatrix().map(r => `<tr>${r.map((c, i) => `<td class="c${i}">${escHtml(c) || '-'}</td>`).join('')}</tr>`).join('');
+            const w = window.open('', '_blank');
+            w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>daily-report-${dailyDate}</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+<style>@page{size:A4 landscape;margin:12mm}body{font-family:'Sarabun',sans-serif;font-size:13px;color:#111}
+h2{margin:0;font-size:18px;text-align:center}.sub{text-align:center;margin:4px 0 14px;color:#444}
+table{width:100%;border-collapse:collapse}th,td{border:1px solid #555;padding:5px 6px;vertical-align:top}
+th{background:#eee}.c0,.c4,.c5{text-align:center;white-space:nowrap}.c6{white-space:pre-wrap}
+.sign{display:flex;justify-content:space-around;margin-top:40px;text-align:center}</style></head><bo` + `dy>
+<h2>สรุปการปฏิบัติงานประจำวัน</h2>
+<div class="sub">${escHtml(appSettings.companyName || '')} — ${formatDateThai(new Date(dailyDate + 'T12:00:00'))}</div>
+<table><thead><tr>${DAILY_HEADERS.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
+<div class="sign"><div>ลงชื่อ ...................................<br>(${escHtml(appSettings.supervisorName || '')})<br>ผู้ตรวจสอบ</div>
+<div>ลงชื่อ ...................................<br>(${escHtml(appSettings.approverName || '')})<br>ผู้อนุมัติ</div></div>
+</bo` + `dy></html>`);
+            w.document.close();
+            w.onload = () => w.print();
         }
 
         // --- SETTINGS ---
@@ -1584,6 +1794,7 @@
             if (name === 'employees') renderEmployees();
             if (name === 'dashboard') renderDashStats();
             if (name === 'settings') loadSettings().then(fillSettingsForm);
+            if (name === 'report' && document.getElementById('reportType').value === 'daily') renderDailyReport();
         }
 
         function logout() { sessionStorage.clear(); window.location.href = 'index.html'; }

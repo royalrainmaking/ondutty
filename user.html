@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ลงเวลางาน - WFH System</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <!-- face-api.js from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"
@@ -873,6 +874,21 @@
         .btn-modal-confirm.in:hover  { background: #16a34a; }
         .btn-modal-confirm.out { background: #ef4444; }
         .btn-modal-confirm.out:hover { background: #dc2626; }
+        .btn-modal-confirm:disabled { opacity: .6; cursor: not-allowed; }
+
+        /* === Assigned task input (inside confirm modal) === */
+        .task-label { display:block; font-size:14px; font-weight:700; color:#334155; margin-bottom:8px; }
+        .task-input {
+            width:100%; min-height:110px; resize:vertical;
+            padding:12px 14px; border-radius:12px; border:2px solid #e2e8f0;
+            font-family:'Sarabun', sans-serif; font-size:15px; line-height:1.5; color:#111;
+            outline:none; transition:border-color .2s; box-sizing:border-box;
+        }
+        .task-input:focus { border-color:#6366f1; }
+        .task-input.invalid { border-color:#ef4444; }
+        .task-meta { display:flex; justify-content:space-between; font-size:12px; margin:6px 2px 18px; color:#94a3b8; }
+        .task-error { color:#ef4444; font-weight:600; visibility:hidden; }
+        .task-error.show { visibility:visible; }
     </style>
 </head>
 
@@ -884,6 +900,14 @@
             <div class="modal-title" id="modalTitle"></div>
             <div class="modal-sub" id="modalSub"></div>
             <div class="modal-time" id="modalTime"></div>
+            <label class="task-label" for="taskInput" id="taskLabel">📝 วันนี้ได้รับมอบหมายให้ทำอะไร</label>
+            <textarea class="task-input" id="taskInput" maxlength="1000"
+                placeholder="กรอกรายละเอียดงานที่ได้รับมอบหมาย เช่น ตรวจสอบเอกสาร..., ประสานงาน..., จัดทำรายงาน..."
+                oninput="onTaskInput()"></textarea>
+            <div class="task-meta">
+                <span class="task-error" id="taskError">กรุณากรอกรายละเอียดงาน</span>
+                <span id="taskCount">0/1000</span>
+            </div>
             <div class="modal-actions">
                 <button class="btn-modal-cancel" onclick="closeConfirmModal()">✕ ยกเลิก</button>
                 <button class="btn-modal-confirm" id="modalConfirmBtn" onclick="confirmModalAction()">✔ ยืนยัน</button>
@@ -1152,6 +1176,9 @@
         let detectionCount = 0;       // For auto-capture
         let isCapturing = false;      // guard
         let faceVerified = false;     // SUCCESS/FAIL flag
+        let verifyMethod = '';        // 'face' | 'photo' (เก็บไว้ให้แอดมินตรวจสอบ ไม่แสดงต่อผู้ใช้)
+        let scanFallbackTimer = null; // ตัวจับเวลา 8 วินาที
+        const SCAN_TIMEOUT_MS = 8000; // ถ้าสแกนไม่ผ่านภายในเวลานี้ จะถ่ายรูปแทน
         const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
         const FACE_THRESHOLD = 0.5;   // euclidean distance threshold
 
@@ -1216,6 +1243,7 @@
                     .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }))
                     .withFaceLandmarks(true)
                     .withFaceDescriptor();
+                if (isCapturing) return; // fallback อาจทำงานไปแล้วระหว่างรอผลตรวจจับ
 
                 ctx.clearRect(0, 0, overlay.width, overlay.height);
                 const guide = document.getElementById('faceGuide');
@@ -1273,6 +1301,7 @@
                     // Auto capture after ~1 second (5 intervals) of "Correct distance" face
                     if (detectionCount >= 5) {
                         isCapturing = true;
+                        clearScanFallbackTimer();
                         captureFace();
                         guideMsg.textContent = '🎉 ตรวจสอบสำเร็จ';
                     }
@@ -1299,6 +1328,83 @@
                 showToast('🔍 กำลังตรวจสอบใบหน้า...', 'info');
             }
             runFaceDetectionLoop();
+
+            // เริ่มจับเวลา: ถ้าสแกนไม่ผ่านภายใน 8 วินาที ให้ถ่ายรูปแทนแบบเงียบๆ
+            clearScanFallbackTimer();
+            scanFallbackTimer = setTimeout(capturePhotoFallback, SCAN_TIMEOUT_MS);
+        }
+
+        function clearScanFallbackTimer() {
+            if (scanFallbackTimer) { clearTimeout(scanFallbackTimer); scanFallbackTimer = null; }
+        }
+
+        // ถ่ายรูปจากกล้องแทนการสแกน — UI แสดงผลเหมือนสแกนผ่านทุกประการ
+        function capturePhotoFallback() {
+            scanFallbackTimer = null;
+            if (isCapturing || faceVerified) return;
+            const clockinPage = document.getElementById('page-clockin');
+            if (clockinPage && !clockinPage.classList.contains('active')) return; // ออกจากหน้าลงเวลาไปแล้ว
+            const video = document.getElementById('faceVideo');
+            if (!video || video.readyState < 2 || video.videoWidth === 0) {
+                // กล้องยังไม่พร้อม ลองใหม่อีกครั้งใน 1 วินาที
+                scanFallbackTimer = setTimeout(capturePhotoFallback, 1000);
+                return;
+            }
+            isCapturing = true;
+            clearInterval(faceDetectionLoop);
+
+            const MAX_WIDTH = 400;
+            let w = video.videoWidth, h = video.videoHeight;
+            if (w > MAX_WIDTH) { h = h * (MAX_WIDTH / w); w = MAX_WIDTH; }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.translate(w, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, w, h);
+
+            let dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+            if (dataUrl.length > 48000) dataUrl = canvas.toDataURL('image/jpeg', 0.3);
+            if (dataUrl === 'data:,' || dataUrl.length < 500) {
+                // ภาพเสีย — กลับไปสแกนต่อ แล้วลองถ่ายใหม่
+                isCapturing = false;
+                runFaceDetectionLoop();
+                scanFallbackTimer = setTimeout(capturePhotoFallback, 2000);
+                return;
+            }
+
+            photoDataUrl = dataUrl;
+            faceVerified = true;
+            verifyMethod = 'photo';
+
+            // แสดงผลเหมือนสแกนสำเร็จ
+            const guideMsg = document.getElementById('faceGuideMsg');
+            if (guideMsg) guideMsg.textContent = '🎉 ตรวจสอบสำเร็จ';
+            const resEl = document.getElementById('faceResultMsg');
+            const overlay = document.getElementById('resultOverlay');
+            const imgEl = document.getElementById('capturedImg');
+            resEl.style.color = '#10b981';
+            resEl.textContent = '✅ ยืนยันตัวตนสำเร็จ';
+            document.getElementById('btnTryAgain').style.display = 'none';
+            overlay.className = 'result-overlay';
+            overlay.innerHTML = '✔️';
+            overlay.classList.add('success', 'show');
+            imgEl.style.borderColor = '#10b981';
+            showToast('✅ ตรวจสอบใบหน้าผ่าน', 'success');
+
+            if (faceStream) faceStream.getTracks().forEach(t => t.stop());
+            document.getElementById('faceBox').style.display = 'none';
+            document.getElementById('faceDetectedBadge').style.display = 'none';
+            document.getElementById('videoContainer').style.display = 'none';
+            document.getElementById('captureBtn').style.display = 'none';
+            imgEl.src = photoDataUrl;
+            document.getElementById('faceCaptured').style.display = 'block';
+
+            setTimeout(() => validateSteps(), 500);
+            setTimeout(async () => {
+                if (window.logsPromise) await window.logsPromise;
+                confirmAction(!isCurrentlyIn ? 'in' : 'out');
+            }, 800);
         }
 
         async function captureFace() {
@@ -1377,6 +1483,7 @@
                 currentUser.faceDescriptor = JSON.stringify(descArr);
                 sessionStorage.setItem('wfh_current', JSON.stringify(currentUser));
                 faceVerified = true;
+                verifyMethod = 'face';
 
                 resEl.style.color = '#10b981';
                 resEl.textContent = '✅ ลงทะเบียนสำเร็จ (กำลังลงเวลา...)';
@@ -1409,6 +1516,7 @@
                     return;
                 } else {
                     faceVerified = true;
+                    verifyMethod = 'face';
                     resEl.style.color = '#10b981';
                     resEl.textContent = `✅ ยืนยันตัวตนสำเร็จ`;
                     document.getElementById('btnTryAgain').style.display = 'none';
@@ -1440,8 +1548,11 @@
         }
 
         function retakeFace() {
+            clearScanFallbackTimer();
+            clearInterval(faceDetectionLoop);
             photoDataUrl = null;
             faceVerified = false;
+            verifyMethod = '';
             currentDetection = null;
             detectionCount = 0;
             isCapturing = false;
@@ -1570,9 +1681,29 @@
             
             const btn = document.getElementById('modalConfirmBtn');
             btn.className = 'btn-modal-confirm ' + type;
-            btn.textContent = '✔ ยืนยัน';
+            btn.textContent = '✔ บันทึกและลงเวลา';
+            btn.disabled = false;
+
+            // ช่องกรอกงานที่ได้รับมอบหมาย (ใช้ข้อความเดิมถ้าเคยพิมพ์ไว้แล้วกดยกเลิก)
+            const input = document.getElementById('taskInput');
+            input.value = pendingTaskText;
+            input.classList.remove('invalid');
+            document.getElementById('taskError').classList.remove('show');
+            onTaskInput();
 
             document.getElementById('confirmModal').classList.add('show');
+            setTimeout(() => input.focus(), 300);
+        }
+
+        let pendingTaskText = '';
+        function onTaskInput() {
+            const input = document.getElementById('taskInput');
+            pendingTaskText = input.value;
+            document.getElementById('taskCount').textContent = `${input.value.length}/1000`;
+            if (input.value.trim()) {
+                input.classList.remove('invalid');
+                document.getElementById('taskError').classList.remove('show');
+            }
         }
 
         function closeConfirmModal() {
@@ -1582,13 +1713,21 @@
 
         function confirmModalAction() {
             if (!pendingConfirmAction) return;
+            const input = document.getElementById('taskInput');
+            const task = input.value.trim();
+            if (task.length < 3) {
+                input.classList.add('invalid');
+                document.getElementById('taskError').classList.add('show');
+                input.focus();
+                return;
+            }
             const type = pendingConfirmAction;
             closeConfirmModal();
-            if (type === 'in') doCheckIn();
-            else if (type === 'out') doCheckOut();
+            if (type === 'in') doCheckIn(task);
+            else if (type === 'out') doCheckOut(task);
         }
 
-        async function doCheckIn() {
+        async function doCheckIn(task = '') {
             const loc = document.getElementById('locationSelect').value;
             if (!loc) { showToast('กรุณาเลือกสถานที่ก่อน', 'warning'); return; }
             if (hasDoneCheckinToday) { showToast('⚠️ คุณลงเวลาเข้างานวันนี้ไปแล้ว 1 ครั้ง\nหากต้องการลงใหม่ กรุณาให้แอดมินลบรายการก่อน', 'warning'); return; }
@@ -1644,7 +1783,8 @@
                     action: 'addLog', userId: currentUser.id, userName: currentUser.name,
                     date: today, time, type: 'checkin', location: loc,
                     lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: '',
-                    lateMin: lateMin, late: lateMin, lateness: lateMin, entryLate: lateMin
+                    lateMin: lateMin, late: lateMin, lateness: lateMin, entryLate: lateMin,
+                    task: task, verifyMethod: verifyMethod || 'face'
                 };
 
                 await api('', 'POST', payload);
@@ -1652,6 +1792,8 @@
                 // Clear face state and hide action buttons immediately
                 photoDataUrl = null;
                 faceVerified = false;
+                verifyMethod = '';
+                pendingTaskText = '';
                 document.getElementById('actionBtnGroup').style.display = 'none';
 
                 todayCheckin = { type: 'checkin', time };
@@ -1670,7 +1812,7 @@
             } finally { setBtnLoading('btnIn', 'spinIn', 'txtIn', false, '🟢 เข้างาน'); }
         }
 
-        async function doCheckOut() {
+        async function doCheckOut(task = '') {
             const loc = document.getElementById('locationSelect').value;
             if (!loc) { showToast('กรุณาเลือกสถานที่ก่อน', 'warning'); return; }
             if (hasDoneCheckoutToday) { showToast('⚠️ คุณลงเวลาออกงานวันนี้ไปแล้ว 1 ครั้ง\nหากต้องการลงใหม่ กรุณาให้แอดมินลบรายการก่อน', 'warning'); return; }
@@ -1698,12 +1840,15 @@
                 await api('', 'POST', {
                     action: 'addLog', userId: currentUser.id, userName: currentUser.name,
                     date: today, time, type: 'checkout', location: loc,
-                    lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: '', lateMin: -earlyMin
+                    lat: gpsLat, lng: gpsLng, photo: photoDataUrl, signature: '', lateMin: -earlyMin,
+                    task: task, verifyMethod: verifyMethod || 'face'
                 });
 
                 // Clear face state and hide action buttons immediately
                 photoDataUrl = null;
                 faceVerified = false;
+                verifyMethod = '';
+                pendingTaskText = '';
                 document.getElementById('actionBtnGroup').style.display = 'none';
 
                 todayCheckout = { type: 'checkout', time };
@@ -1891,8 +2036,10 @@
             if (blockedEl) blockedEl.style.display = 'none';
 
             // รีเซ็ตข้อมูลการสแกนหน้าเดิม เพื่อบังคับให้ผู้ใช้กด "เปิดกล้องสแกน" ใหม่ทุกครั้งเมื่อเข้ามา
+            clearScanFallbackTimer();
             photoDataUrl = null;
             faceVerified = false;
+            verifyMethod = '';
             if (document.getElementById('faceCaptured')) document.getElementById('faceCaptured').style.display = 'none';
             if (document.getElementById('faceScannerFlow')) document.getElementById('faceScannerFlow').style.display = 'none';
             if (document.getElementById('btnOpenCamera')) document.getElementById('btnOpenCamera').style.display = 'block';

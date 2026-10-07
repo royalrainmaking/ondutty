@@ -34,7 +34,9 @@ function initSheets() {
   }
   const logsSheet = getSheet('logs');
   if (logsSheet.getLastRow() === 0) {
-    logsSheet.appendRow(['id','userId','userName','date','time','type','location','lat','lng','photo','signature','lateMin']);
+    logsSheet.appendRow(['id','userId','userName','date','time','type','location','lat','lng','photo','signature','lateMin','task','verifyMethod']);
+  } else {
+    ensureLogsExtraColumns(logsSheet);
   }
   const schedulesSheet = getSheet('schedules');
   if (schedulesSheet.getLastRow() === 0) {
@@ -48,6 +50,89 @@ function initSheets() {
      ['supervisorName','นายสมชาย คนขยัน'],['approverName','นายสมพงษ์ ใจดี']
     ].forEach(r => settingsSheet.appendRow(r));
   }
+}
+
+// ================================================
+// เมนู "⚙️ ระบบลงเวลา" ใน Google Sheets
+// (ทำงานเมื่อสคริปต์ผูกกับไฟล์ Sheet นี้ผ่าน Extensions -> Apps Script)
+// ================================================
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('⚙️ ระบบลงเวลา')
+    .addItem('🛠️ Setup Sheet (สร้าง/ตรวจสอบชีตทั้งหมด)', 'setupSheets')
+    .addSeparator()
+    .addItem('📷 ดูรายการที่ถ่ายรูปแทนการสแกน', 'showPhotoFallbackLogs')
+    .addToUi();
+}
+
+function setupSheets() {
+  const ui = SpreadsheetApp.getUi();
+  initSheets();
+
+  // จัดรูปแบบหัวตาราง + ตรึงแถวแรก ทุกชีต
+  const names = ['users', 'logs', 'schedules', 'settings'];
+  names.forEach(n => {
+    const sh = getSheet(n);
+    const lastCol = Math.max(sh.getLastColumn(), 1);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, lastCol)
+      .setFontWeight('bold').setBackground('#4f46e5').setFontColor('#ffffff');
+  });
+
+  // ชีต logs: ขยายคอลัมน์ M (task) ให้อ่านรายละเอียดงานได้ง่าย
+  const logs = getSheet('logs');
+  logs.setColumnWidth(13, 420);
+  logs.getRange('M:M').setWrap(true);
+
+  const report = names.map(n => {
+    const rows = Math.max(getSheet(n).getLastRow() - 1, 0);
+    return '✅ ' + n + ' (' + rows + ' แถวข้อมูล)';
+  }).join('\n');
+  ui.alert('Setup Sheet เรียบร้อย', report, ui.ButtonSet.OK);
+}
+
+// สร้าง/อัปเดตชีต photo_fallback ที่รวมรายการที่ระบบถ่ายรูปแทนการสแกน (verifyMethod = photo)
+function showPhotoFallbackLogs() {
+  initSheets();
+  const data = getSheet('logs').getDataRange().getDisplayValues();
+  const h = data[0];
+  const vIdx = h.indexOf('verifyMethod');
+  const pick = ['date','time','userId','userName','type','location','lat','lng','task'].map(k => h.indexOf(k));
+  const rows = data.slice(1)
+    .filter(r => String(r[vIdx]).replace(/^'/, '') === 'photo')
+    .map(r => pick.map(i => i >= 0 ? r[i] : ''));
+
+  const sh = getSheet('photo_fallback');
+  sh.clear();
+  sh.appendRow(['date','time','userId','userName','type','location','lat','lng','task']);
+  if (rows.length) sh.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+  sh.setFrozenRows(1);
+  sh.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#f59e0b').setFontColor('#ffffff');
+  SpreadsheetApp.getActive().setActiveSheet(sh);
+  SpreadsheetApp.getUi().alert('พบ ' + rows.length + ' รายการที่ใช้การถ่ายรูปแทนการสแกน');
+}
+
+// เพิ่มคอลัมน์ต่อท้ายชีต logs เดิม (ไม่แตะคอลัมน์ A–L และข้อมูลเก่า)
+//   M = task          รายละเอียดงานที่ได้รับมอบหมาย
+//   N = verifyMethod  face = สแกนผ่าน, photo = ถ่ายรูปแทนหลังสแกนไม่ผ่านใน 8 วินาที
+function ensureLogsExtraColumns(sheet) {
+  const lastCol = Math.max(sheet.getLastColumn(), 12);
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
+  if (headers.indexOf('task') >= 0 && headers.indexOf('verifyMethod') >= 0) return;
+
+  // กรณีเคยใช้โค้ดรุ่นก่อนที่ใส่ verifyMethod ไว้ที่ M: ย้ายไป N แล้วใส่ task ที่ M
+  if (headers[12] === 'verifyMethod' && headers.indexOf('task') < 0) {
+    const n = sheet.getLastRow();
+    if (n > 1 && !headers[13]) {
+      const vals = sheet.getRange(2, 13, n - 1, 1).getValues();
+      sheet.getRange(2, 14, n - 1, 1).setValues(vals);
+      sheet.getRange(2, 13, n - 1, 1).clearContent();
+    }
+    sheet.getRange(1, 13, 1, 2).setValues([['task', 'verifyMethod']]);
+    return;
+  }
+  if (headers.indexOf('task') < 0 && !headers[12]) sheet.getRange(1, 13).setValue('task');
+  if (headers.indexOf('verifyMethod') < 0 && !headers[13]) sheet.getRange(1, 14).setValue('verifyMethod');
 }
 
 function respond(data) {
@@ -245,9 +330,14 @@ function addLog(data) {
   const date = "'" + logDate;
   const time = "'" + String(data.time || '');
   
+  const taskText = String(data.task || '').trim().substring(0, 1000);
+  const task = taskText ? "'" + taskText : '';
+  const verifyMethod = "'" + (String(data.verifyMethod || '') === 'photo' ? 'photo' : 'face');
+
+  // A–L เหมือนเดิม, M = task, N = verifyMethod
   sheet.appendRow([id, userId, userName, date, time, type,
-                   location, lat, lng, photo, sig, lateMin]);
-  return {success:true, id: String(Date.now())};
+                   location, lat, lng, photo, sig, lateMin, task, verifyMethod]);
+  return {success:true, id: id.replace(/^'/, '')};
 }
 
 // ---- SCHEDULES ----
