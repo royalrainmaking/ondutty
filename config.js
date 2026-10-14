@@ -4,6 +4,9 @@
 // ================================================
 window.WFH_API_URL = 'https://script.google.com/macros/s/AKfycbwmbbyJeO2DecfYlEypt6lAIrgwRzZLDTKdIVIZOgdRZF8WA1QQecFcOJWAlEYMsDhZyA/exec';
 
+// ล้างแคช logs เก่าที่อาจค้างอยู่ใน sessionStorage
+try { sessionStorage.removeItem('wfh_admin_logs_v2'); } catch (e) { }
+
 // ระบบนี้ไม่ได้ใช้ Service Worker — ถ้ามีตัวค้างจากโปรเจกต์อื่นที่รันบน 127.0.0.1:5500 ให้ถอดออก
 // (ตัวค้างจะทำให้หน้าเว็บโหลดไม่ขึ้น: "FetchEvent ... network error" / "sw.js Failed to convert value to 'Response'")
 if ('serviceWorker' in navigator) {
@@ -15,3 +18,4 @@ if ('serviceWorker' in navigator) {
     });
   }).catch(function () { });
 }
+

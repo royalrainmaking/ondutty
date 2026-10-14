@@ -2044,8 +2044,9 @@
 
 
         async function api(path = '', method = 'GET', body = null) {
-            const url = API_URL + path;
-            const opts = { method };
+            const sep = path.includes('?') ? '&' : '?';
+            const url = API_URL + path + (method === 'GET' ? sep + '_t=' + Date.now() : '');
+            const opts = { method, cache: 'no-store' };
             if (body) { opts.method = 'POST'; opts.body = JSON.stringify(body); }
             const resp = await fetch(url, opts);
             const json = await resp.json();

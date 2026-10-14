@@ -724,6 +724,7 @@
         .filter-row { gap: 12px; margin-bottom: 24px; }
         .badge { font-size: 13px; padding: 6px 14px; }
         </style>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="config.js"></script>
 </head>
 
@@ -826,23 +827,23 @@
         <!-- LOGS -->
         <div class="page active" id="page-logs">
             <div class="section-card">
-                <div class="section-header" style="display:flex; flex-wrap:wrap; gap:16px;">
+                <div class="section-header" style="display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
                     <div class="section-title">ประวัติการลงเวลา (แอดมิน)</div>
                     <div style="display:flex; gap:10px; align-items:center; background:#f8fafc; padding:8px 16px; border-radius:12px; border:1px solid #e2e8f0; margin-left:auto;">
                         <span style="font-size:13px; font-weight:700; color:#475569;">พิมพ์รายงานประจำวัน:</span>
                         <input type="date" id="exportDailyDate" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; width:auto; font-family:'Sarabun',sans-serif;">
                         <button class="btn-export prt" onclick="doExportDaily('print')" style="padding:6px 12px; font-size:13px;">🖨️ พิมพ์ / PDF</button>
-
                     </div>
                 </div>
-                <div class="filter-row">
+                <div class="filter-row" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
                     <input type="search" autocomplete="off" name="logSearchNoFill" readonly onfocus="this.removeAttribute('readonly')" placeholder="🔍 ค้นหาชื่อพนักงาน หรืองาน..." id="logSearch" oninput="filterLogs()">
                     <select id="logUserFilter" onchange="filterLogs()">
                         <option value="">พนักงานทั้งหมด</option>
                     </select>
-                    <input type="date" id="logDateFrom" onchange="loadLogs()">
-                    <input type="date" id="logDateTo" onchange="loadLogs()">
-                    <button class="btn-primary" onclick="loadLogs()">🔍 ค้นหา</button>
+                    <input type="date" id="logDateFrom" onchange="loadLogs(true)">
+                    <input type="date" id="logDateTo" onchange="loadLogs(true)">
+                    <button class="btn-primary" onclick="loadLogs(true)" title="ค้นหาและดึงข้อมูลสดจากระบบ">🔍 ค้นหา</button>
+                    <button class="btn-export prt" onclick="refreshAllData()" style="padding:10px 14px; font-size:14px; border-radius:10px;" title="ดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์">🔄 รีเฟรชข้อมูล</button>
                 </div>
                 <div id="logsSubtitle" style="color:#888;font-size:13px;margin-bottom:12px"></div>
                 <div style="overflow-x:auto">
@@ -997,7 +998,8 @@
             if (expEl) expEl.value = todayISO();
             showLoading(true);
             try {
-                await Promise.all([loadUsers(), loadSettings(), ensureAllLogs()]);
+                // บังคับดึงข้อมูลสดเสมอเมื่อเปิดหน้าเว็บ (ไม่ใช้แคชค้าง)
+                await Promise.all([loadUsers(true), loadSettings(), ensureAllLogs(true)]);
             } catch (e) { showToast('❌ โหลดข้อมูลไม่ได้: ' + e.message, 'error'); }
             finally { showLoading(false); }
             const startPage = location.hash.replace('#', '');
@@ -1015,8 +1017,9 @@
         }
 
         async function api(path = '', method = 'GET', body = null) {
-            const url = API_URL + path;
-            const opts = { method };
+            const sep = path.includes('?') ? '&' : '?';
+            const url = API_URL + path + (method === 'GET' ? sep + '_t=' + Date.now() : '');
+            const opts = { method, cache: 'no-store' };
             if (body) { opts.method = 'POST'; opts.body = JSON.stringify(body); }
             const resp = await fetch(url, opts);
             const json = await resp.json();
@@ -1024,7 +1027,7 @@
             return json;
         }
 
-        async function loadUsers() {
+        async function loadUsers(force = false) {
             try {
                 const r = await api('?action=getUsers');
                 const rawUsers = r.data || [];
@@ -1104,11 +1107,10 @@
             }).join('');
         }
 
-        // ===== ข้อมูลกลาง: ดึงครั้งเดียวตอนเข้าหน้าแอดมิน แล้วทุกหน้าใช้ร่วมกัน =====
-        // (ไม่ดึงรูป เพื่อให้เร็ว — รูปโหลดเฉพาะตอนกดดู)
-        // เก็บสำเนาไว้ใน sessionStorage ด้วย: กด F5 / ปุ่มย้อนกลับของเบราว์เซอร์ / ออกไปหน้าอื่นแล้วกลับมา
-        // ก็ยังใช้ข้อมูลเดิมได้ ไม่ต้องดึงใหม่ (ล้างเองเมื่อปิดแท็บ หรือกด 🔄 ดึงข้อมูลใหม่)
+        // ===== ข้อมูลกลาง: อัปเดตข้อมูลสดเสมอ และไม่จำค่าแคชค้างใน sessionStorage =====
         const LOGS_CACHE_KEY = 'wfh_admin_logs_v2';
+        try { sessionStorage.removeItem(LOGS_CACHE_KEY); } catch (e) { }
+
         // แปลงวันที่ทุกรูปแบบ (07/10/2569, 2569-10-07, 2026-10-07T..., ฯลฯ) ให้เป็น yyyy-mm-dd แบบ ค.ศ.
         function normDate(v) {
             let s = String(v ?? '').replace(/^'/, '').trim();
@@ -1124,34 +1126,26 @@
             if (y > 2400) y -= 543;
             return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
         }
+
         let logsStore = null, logsStorePromise = null, logsStoreAt = 0;
         function setSyncLabel() {
             const el = document.getElementById('dataSyncTime'); if (!el || !logsStore) return;
             const t = new Date(logsStoreAt || Date.now());
             el.style.color = '';
-            el.textContent = `ข้อมูลเมื่อ ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')} น. (${logsStore.length} รายการ)`;
+            el.textContent = `ข้อมูลเมื่อ ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')} น. (${logsStore.length} รายการ)`;
         }
-        function readLogsCache() {
-            try {
-                const c = JSON.parse(sessionStorage.getItem(LOGS_CACHE_KEY) || 'null');
-                if (c && c.api === API_URL && Array.isArray(c.data)) return c;
-            } catch (e) { }
-            return null;
-        }
-        function writeLogsCache() {
-            try { sessionStorage.setItem(LOGS_CACHE_KEY, JSON.stringify({ api: API_URL, at: logsStoreAt, data: logsStore })); }
-            catch (e) { /* ข้อมูลใหญ่เกินที่เบราว์เซอร์เก็บได้ — ใช้ในหน่วยความจำอย่างเดียว */ }
-        }
+
         function ensureAllLogs(force = false) {
+            const now = Date.now();
+            const RAM_CACHE_TTL = 20 * 1000; // จำใน RAM สั้นๆ ไม่เกิน 20 วินาที เพื่อไม่ให้ยิง API ถี่เกินไประหว่างสลับแท็บ
             if (force) {
-                logsStore = null; logsStorePromise = null;
+                logsStore = null;
+                logsStorePromise = null;
                 try { sessionStorage.removeItem(LOGS_CACHE_KEY); } catch (e) { }
+            } else if (logsStore && (now - logsStoreAt < RAM_CACHE_TTL)) {
+                return Promise.resolve(logsStore);
             }
-            if (logsStore) return Promise.resolve(logsStore);
-            if (!force) {
-                const c = readLogsCache();
-                if (c) { logsStore = c.data; logsStoreAt = c.at; setSyncLabel(); return Promise.resolve(logsStore); }
-            }
+
             if (!logsStorePromise) {
                 logsStorePromise = api('?action=getLogs').then(r => {
                     logsStore = (r.data || []).map(l => {
@@ -1164,13 +1158,15 @@
                         return o;
                     });
                     logsStoreAt = Date.now();
-                    writeLogsCache();
+                    logsStorePromise = null; // รีเซ็ต promise เพื่อให้เรียกครั้งต่อไปได้ข้อมูลสด
+                    try { sessionStorage.removeItem(LOGS_CACHE_KEY); } catch (e) { }
                     setSyncLabel();
                     return logsStore;
                 }).catch(e => { logsStorePromise = null; throw e; });
             }
             return logsStorePromise;
         }
+
         function showLogsError(e) {
             const tbody = document.getElementById('logsBody');
             if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="empty-state" style="color:#dc2626">❌ ดึงข้อมูลจากเซิร์ฟเวอร์ไม่ได้: ${String(e && e.message || e).replace(/</g, '&lt;')}
@@ -1178,18 +1174,21 @@
             const st = document.getElementById('dataSyncTime');
             if (st) { st.textContent = '❌ ดึงข้อมูลไม่สำเร็จ'; st.style.color = '#dc2626'; }
         }
-        async function logsInRange(from, to) {
-            const all = await ensureAllLogs();
+
+        async function logsInRange(from, to, force = false) {
+            const all = await ensureAllLogs(force);
             return all.filter(l => { const d = normDate(l.date); return (!from || d >= from) && (!to || d <= to); });
         }
+
         async function refreshAllData() {
             showLoading(true);
             try {
-                await Promise.all([ensureAllLogs(true), loadUsers()]);
+                await Promise.all([ensureAllLogs(true), loadUsers(true)]);
                 const active = document.querySelector('.page.active');
                 const name = active ? active.id.replace('page-', '') : 'logs';
-                if (name === 'logs') filterLogsFromStore();
-                showToast('✅ ดึงข้อมูลใหม่แล้ว', 'success');
+                if (name === 'logs') await loadLogs(false);
+                if (name === 'employees') renderEmployees();
+                showToast('✅ ดึงข้อมูลล่าสุดสำเร็จ', 'success');
             } catch (e) { showToast('❌ ' + e.message, 'error'); }
             finally { showLoading(false); }
         }
@@ -1220,9 +1219,9 @@
         }
 
         // --- LOGS ---
-        function filterLogsFromStore() { loadLogs(); }
-        async function loadLogs() {
-            if (!logsStore) showLoading(true);
+        function filterLogsFromStore() { loadLogs(false); }
+        async function loadLogs(force = false) {
+            if (!logsStore || force) showLoading(true);
             try {
                 const dfEl = document.getElementById('logDateFrom');
                 const dtEl = document.getElementById('logDateTo');
@@ -1232,7 +1231,7 @@
                     dfEl.value = t.slice(0, 8) + '01';
                     dtEl.value = t;
                 }
-                allLogs = await logsInRange(dfEl.value, dtEl.value);
+                allLogs = await logsInRange(dfEl.value, dtEl.value, force);
                 filterLogs();
             } catch (e) {
                 allLogs = [];
@@ -1462,22 +1461,37 @@
             try {
                 await api('', 'POST', { action: 'deleteLog', id });
                 allLogs = allLogs.filter(l => String(l.id) !== String(id));
-                if (logsStore) { logsStore = logsStore.filter(l => String(l.id) !== String(id)); writeLogsCache(); setSyncLabel(); }
+                if (logsStore) { logsStore = logsStore.filter(l => String(l.id) !== String(id)); setSyncLabel(); }
                 filterLogs(); showToast('ลบสำเร็จ', 'success');
             } catch (e) { showToast('❌ ' + e.message, 'error'); }
             finally { showLoading(false); }
         }
 
-        function exportCSV() {
-            const q = v => `"${String(v ?? '').replace(/^'/, '').replace(/"/g, '""')}"`;
-            let csv = 'วันที่,เวลา,พนักงาน,ประเภท,สถานที่,สาย(นาที),งานที่ได้รับมอบหมาย,งานที่แล้วเสร็จ\r\n';
-            allLogs.forEach(l => {
-                const isIn = l.type === 'checkin';
-                csv += [l.date, l.time, l.userName, isIn ? 'เข้างาน' : 'ออกงาน', l.location || '', l.lateMin || 0,
-                        isIn ? (l.task || '') : '', isIn ? '' : (l.task || '')].map(q).join(',') + '\r\n';
-            });
-            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'timelog.csv'; a.click();
+        async function exportCSV() {
+            showLoading(true);
+            try {
+                await ensureAllLogs(true);
+                const dfEl = document.getElementById('logDateFrom');
+                const dtEl = document.getElementById('logDateTo');
+                allLogs = await logsInRange(dfEl.value, dtEl.value);
+                const q = v => `"${String(v ?? '').replace(/^'/, '').replace(/"/g, '""')}"`;
+                let csv = 'วันที่,เวลา,พนักงาน,ประเภท,สถานที่,สาย(นาที),งานที่ได้รับมอบหมาย,งานที่แล้วเสร็จ\r\n';
+                allLogs.forEach(l => {
+                    const isIn = l.type === 'checkin';
+                    csv += [l.date, l.time, l.userName, isIn ? 'เข้างาน' : 'ออกงาน', l.location || '', l.lateMin || 0,
+                            isIn ? (l.task || '') : '', isIn ? '' : (l.task || '')].map(q).join(',') + '\r\n';
+                });
+                const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `timelog_${dfEl.value || 'all'}_to_${dtEl.value || 'all'}.csv`;
+                a.click();
+                showToast('✅ ส่งออก CSV สำเร็จ', 'success');
+            } catch (e) {
+                showToast('❌ ส่งออกไม่สำเร็จ: ' + e.message, 'error');
+            } finally {
+                showLoading(false);
+            }
         }
 
         // --- EMPLOYEES ---
@@ -1677,9 +1691,9 @@
 
         async function fetchDailyDataForExport(date) {
             if (!date) { showToast('กรุณาเลือกวันที่ก่อน', 'warning'); return false; }
-            if (!logsStore) showLoading(true);
             try {
-                const logs = (await logsInRange(date, date)).filter(l => stripQ(l.date) === date);
+                const targetDate = normDate(date);
+                const logs = (await logsInRange(targetDate, targetDate)).filter(l => normDate(l.date) === targetDate);
                 const byUser = {};
                 logs.forEach(l => {
                     const uid = stripQ(l.userId);
@@ -1688,7 +1702,7 @@
                     if (l.type === 'checkout' && !byUser[uid].co) byUser[uid].co = l;
                 });
                 const ids = Object.keys(byUser);
-                dailyDate = date;
+                dailyDate = targetDate;
                 dailyRows = ids.map(uid => {
                     const u = findUserFor(uid, (byUser[uid] || {}).name) || {};
                     const rec = byUser[uid] || {};
@@ -1722,16 +1736,26 @@
                 console.error(e);
                 showToast('❌ ' + e.message, 'error');
                 return false;
-            } finally { showLoading(false); }
+            }
         }
 
         async function doExportDaily(type) {
             const date = document.getElementById('exportDailyDate').value;
             if (!date) { showToast('กรุณาเลือกวันที่ก่อน', 'warning'); return; }
-            const success = await fetchDailyDataForExport(date);
-            if (success) {
-                if (type === 'print') printDailyReport();
-                else if (type === 'excel') exportDailyExcel();
+            showLoading(true);
+            try {
+                // บังคับดึงข้อมูลล่าสุดจาก Google Sheets เสมอก่อน export ทุกครั้ง
+                await Promise.all([ensureAllLogs(true), loadUsers(true)]);
+                const success = await fetchDailyDataForExport(date);
+                if (success) {
+                    if (type === 'print') printDailyReport();
+                    else if (type === 'excel') exportDailyExcel();
+                    else if (type === 'csv') exportDailyCSV();
+                }
+            } catch (e) {
+                showToast('❌ ไม่สามารถส่งออกข้อมูลได้: ' + e.message, 'error');
+            } finally {
+                showLoading(false);
             }
         }
 
@@ -1864,10 +1888,19 @@ tr{page-break-inside:avoid}tr.grp td{background:#f3f4f6;font-weight:700}</style>
             const pages = ['logs', 'employees', 'report', 'settings'];
             document.querySelectorAll('.nav-item')[pages.indexOf(name)]?.classList.add('active');
             if (name === 'logs') loadLogs();
-            if (name === 'employees') renderEmployees();
-
+            if (name === 'employees') loadUsers(true).then(renderEmployees);
             if (name === 'settings') loadSettings().then(fillSettingsForm);
         }
+
+        // เมื่อสลับแท็บกลับมาที่หน้าเว็บ ให้ตรวจเช็คและดึงข้อมูลสดถ้าผ่านไปเกิน 30 วินาที
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && Date.now() - logsStoreAt > 30000) {
+                const active = document.querySelector('.page.active');
+                if (active && active.id === 'page-logs') {
+                    loadLogs(true);
+                }
+            }
+        });
 
         function logout() { sessionStorage.clear(); window.location.href = 'index.html'; }
 
